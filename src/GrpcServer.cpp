@@ -161,8 +161,8 @@ grpc::Status CameraControlServiceImpl::GetLatestImageFrame(
 
     resp->set_shared_memory_index(idx);
     resp->set_timestamp(ts);
-    resp->set_width(hdr->image_width);
-    resp->set_height(hdr->image_height);
+    resp->set_width(hdr->buffer_width[idx]);    // actual ROI, not the SHM max
+    resp->set_height(hdr->buffer_height[idx]);
     resp->set_camera_id(hdr->buffer_camera_id[idx]);
     return grpc::Status::OK;
 }

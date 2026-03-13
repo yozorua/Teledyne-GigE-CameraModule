@@ -258,7 +258,9 @@ void SpinnakerCameraManager::CameraAcquisitionThread(Spinnaker::CameraPtr camera
                     std::min(src_bytes, dst_bytes));
 
         // ── Publish to consumers ──────────────────────────────────────────────
-        shm_.PublishBuffer(buf_idx, camera_id);
+        shm_.PublishBuffer(buf_idx, camera_id,
+                           static_cast<int32_t>(image->GetWidth()),
+                           static_cast<int32_t>(image->GetHeight()));
         RecordFrameTime(camera_id);
 
         // ── Optional disk save (non-blocking) ─────────────────────────────────

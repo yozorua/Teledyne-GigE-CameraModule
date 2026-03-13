@@ -47,6 +47,13 @@ struct SharedMemoryHeader {
     /// Which camera produced each buffer (-1 = not yet written).
     int32_t     buffer_camera_id[POOL_SIZE];
 
+    /// Actual image dimensions written into each buffer slot.
+    /// These may differ from image_width/image_height when the camera ROI has
+    /// been changed since the SHM block was allocated.  Consumers must use
+    /// these values — not image_width/image_height — to interpret pixel data.
+    int32_t     buffer_width[POOL_SIZE];
+    int32_t     buffer_height[POOL_SIZE];
+
     /// Per-buffer state:
     ///   SHM_WRITING (-1) – producer is copying image data into this buffer
     ///   0                – buffer is free (no readers, not being written)
@@ -94,8 +101,10 @@ public:
     uint8_t* GetBufferPtr(int32_t index);
 
     /// Releases a previously claimed buffer and makes it visible to consumers.
-    /// Updates both the global latest_buffer_index and latest_buffer_per_camera[camera_id].
-    void PublishBuffer(int32_t index, int32_t camera_id);
+    /// Records the actual image dimensions so consumers always know the true
+    /// pixel layout regardless of ROI changes since the SHM was allocated.
+    void PublishBuffer(int32_t index, int32_t camera_id,
+                       int32_t actual_width, int32_t actual_height);
 
     // ── Consumer API (called from gRPC handlers) ──────────────────────────────
 

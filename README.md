@@ -137,34 +137,45 @@ build\GigEDebugClient.exe localhost:50051
 ### Typical test sequence
 
 ```
-:: 1. Check server is reachable and cameras are found
-camera> state
+:: 1. Check module is reachable
+camera> health
 
-:: 2. Start acquisition
+:: 2. List cameras and confirm model / IP / settings
+camera> cameras
+
+:: 3. Start acquisition on all cameras
 camera> start
 
-:: 3. Verify a frame arrives from each camera
+:: 4. Verify a frame arrives from each camera
 camera> grab -1        (any camera)
 camera> grab 0         (camera 0 only)
 camera> grab 1         (camera 1 only)
 
-:: 4. Inspect the shared memory pool directly (no gRPC round-trip)
+:: 5. Inspect the shared memory pool directly (no gRPC round-trip)
 camera> shm
 
-:: 5. Adjust a camera parameter
+:: 6. Adjust a parameter on all cameras
 camera> set ExposureTime 5000.0 0
 camera> set Gain 6.0 0
 
-:: 6. Trigger a frame save to disk
+:: 7. Adjust a parameter on camera 0 only
+camera> set 0 ExposureTime 8000.0 0
+
+:: 8. Change the save directory and trigger a disk write
+camera> savedir C:\frames
 camera> save
 
-:: 7. Hold a buffer open and release it manually
+:: 9. Hold a buffer open and release it manually
 camera> grab 0 keep
   shm_index : 3
   ...
 camera> release 3
 
-:: 8. Stop acquisition and exit
+:: 10. Stop camera 1 independently, leave camera 0 running
+camera> stop 1
+camera> state        (shows PARTIAL)
+
+:: 11. Full stop and exit
 camera> stop
 camera> quit
 ```
@@ -174,12 +185,12 @@ camera> quit
 ```
   shm_index : 4
   camera_id : 0
-  size      : 1920×1080
+  size      : 4096x3000
   timestamp : 1741234567890 ms
-  [SHM] 2073600 bytes read | min=12  max=247  mean=128.4
-  [SHM] Pixel sample (5×5 grid across 1920×1080):
-         128  131  129  133  130
-         ...
+  [SHM] buffer[4] — 12288000 bytes  |  min=12  max=247  mean=128.4
+  [SHM] Pixel sample (5x5 grid across 4096x3000):
+          128  131  129  133  130
+          ...
   OK — Frame released.
 ```
 
@@ -204,7 +215,7 @@ camera> quit
 │  ┌────────────────────────▼────────────────────────────────┐    │
 │  │ SharedMemoryManager  "Global\CameraImageBufferPool"      │    │
 │  │  • Header  (SharedMemoryHeader + atomic refcounts)       │    │
-│  │  • 10 × image buffers (contiguous)                       │    │
+│  │  • 20 × image buffers (contiguous, 5 per MAX_CAMERAS=4)  │    │
 │  └────────────────────────┬────────────────────────────────┘    │
 │                           │ index + metadata via gRPC            │
 │  ┌────────────────────────▼────────────────────────────────┐    │
@@ -229,8 +240,8 @@ camera> quit
 The pool header lives at offset 0 of the mapped region:
 
 ```
-[SharedMemoryHeader]          ← sizeof(SharedMemoryHeader)
-[Buffer 0][Buffer 1]...[9]    ← 10 × (width × height × channels) bytes
+[SharedMemoryHeader]           ← sizeof(SharedMemoryHeader)
+[Buffer 0][Buffer 1]...[19]    ← 20 × (width × height × channels) bytes
 ```
 
 Buffer state is tracked by `reference_counts[i]` (atomic int32):
@@ -254,29 +265,70 @@ The producer uses CAS `0 → -1` to claim a buffer, copies the image, then store
 
 See `proto/camera_service.proto`.  Package name: `camaramodule`.
 
-| RPC | Request | Description |
-|---|---|---|
-| `GetSystemState` | `Empty` | Status string, camera count, current FPS |
-| `StartAcquisition` | `Empty` | Begin frame capture on all cameras |
-| `StopAcquisition` | `Empty` | Stop capture and join acquisition threads |
-| `SetParameter` | `ParameterRequest` | Set a GenICam node by name (float or int) |
-| `TriggerDiskSave` | `Empty` | Queue the next frame for disk write |
-| `GetLatestImageFrame` | `FrameRequest` | Pin a buffer; returns index + metadata |
-| `ReleaseImageFrame` | `ReleaseRequest` | Release a pinned buffer back to the pool |
+### RPC reference
 
-### Multi-camera frame selection
+| RPC | Request message | Response | Description |
+|---|---|---|---|
+| `GetSystemState` | `Empty` | `SystemState` | Status string (`IDLE`/`ACQUIRING`/`PARTIAL`/`ERROR`), camera count, aggregate FPS |
+| `StartAcquisition` | `CameraRequest` | `CommandStatus` | Start acquisition on one or all cameras |
+| `StopAcquisition` | `CameraRequest` | `CommandStatus` | Stop acquisition on one or all cameras |
+| `SetParameter` | `ParameterRequest` | `CommandStatus` | Set a GenICam node by name on one or all cameras |
+| `TriggerDiskSave` | `Empty` | `CommandStatus` | Queue the next captured frame for disk write |
+| `SetSaveDirectory` | `SaveDirectoryRequest` | `CommandStatus` | Change the directory frames are saved to at runtime |
+| `GetCameraInfo` | `CameraRequest` | `CameraState` | Full live state for one camera (model, IP, ROI, binning, exposure, gain, FPS) |
+| `GetLatestImageFrame` | `FrameRequest` | `FrameInfo` | Pin the latest buffer for a camera; returns SHM index + metadata |
+| `ReleaseImageFrame` | `ReleaseRequest` | `CommandStatus` | Decrement refcount on a pinned buffer |
 
-`GetLatestImageFrame` takes a `FrameRequest { int32 camera_id }`:
+### Per-camera targeting (`camera_id` field)
+
+`StartAcquisition`, `StopAcquisition`, `SetParameter`, and `GetCameraInfo` all carry a `camera_id` field:
 
 | `camera_id` | Behaviour |
 |---|---|
-| `-1` | Latest frame from **any** camera (global latest) |
-| `0` | Latest frame from camera 0 only |
-| `1` | Latest frame from camera 1 only |
+| `-1` | All cameras (start/stop/set) or error (info) |
+| `0` | Camera 0 only |
+| `1` | Camera 1 only |
+| … | … |
 
-`FrameInfo` returns `camera_id` so the consumer knows which camera produced the buffer.
+`GetLatestImageFrame` uses the same convention — pass `-1` to get the most recent frame from any camera.
 
 > **Important:** consumers must call `ReleaseImageFrame` after every successful `GetLatestImageFrame` or the pool will exhaust.
+
+### `CameraState` fields
+
+`GetCameraInfo` returns the following live-read GenICam values:
+
+| Field | GenICam node | Type | Notes |
+|---|---|---|---|
+| `model_name` | `DeviceModelName` | string | e.g. `Oryx ORX-10G-123S6C` |
+| `serial` | `DeviceSerialNumber` | string | |
+| `ip_address` | `GevCurrentIPAddress` | string | Dotted-decimal; empty if not GigE |
+| `width` / `height` | `Width` / `Height` | int | Active ROI size in pixels |
+| `offset_x` / `offset_y` | `OffsetX` / `OffsetY` | int | ROI top-left corner |
+| `binning_h` / `binning_v` | `BinningHorizontal` / `BinningVertical` | int | 1 = no binning |
+| `exposure_us` | `ExposureTime` | float | Microseconds |
+| `gain_db` | `Gain` | float | dB |
+| `fps` | — | float | Computed from per-camera frame timestamps (last 30 frames) |
+| `acquiring` | — | bool | Whether the acquisition thread is currently running |
+
+### `SetParameter` — settable GenICam nodes
+
+`SetParameter` accepts any writable GenICam node name.  The implementation tries `CFloatPtr` first, then `CIntegerPtr`.  Common nodes:
+
+| Node name | Type | Notes |
+|---|---|---|
+| `ExposureTime` | float | Microseconds; camera must have auto-exposure off |
+| `Gain` | float | dB |
+| `Gamma` | float | Typically 0.25–4.0 |
+| `BlackLevel` | float | |
+| `AcquisitionFrameRate` | float | Requires `AcquisitionFrameRateEnable = true` |
+| `Width` / `Height` | int | ROI size; must stop acquisition first on most cameras |
+| `OffsetX` / `OffsetY` | int | ROI top-left; must stop acquisition first |
+| `BinningHorizontal` / `BinningVertical` | int | Also `BinningX` / `BinningY` on some models |
+| `GevSCPSPacketSize` | int | Set to 9000 for jumbo frames (auto-applied on start) |
+| `DeviceLinkThroughputLimit` | int | Bytes/s; auto-applied per camera on start |
+
+Nodes that require acquisition to be stopped (ROI, binning) must be set after calling `StopAcquisition` and before the next `StartAcquisition`.  Float-only nodes (e.g. `ExposureTime`) can be changed live.
 
 ---
 
@@ -288,20 +340,60 @@ See `proto/camera_service.proto`.  Package name: `camaramodule`.
 build\GigEDebugClient.exe localhost:50051
 ```
 
+### Command reference
+
+**Module-level**
+
 | Command | Action |
 |---|---|
-| `state` | `GetSystemState` |
-| `start` / `stop` | Start/stop acquisition |
-| `set ExposureTime 5000.0 0` | `SetParameter` |
-| `save` | `TriggerDiskSave` |
-| `grab` | Grab any-camera frame, inspect SHM pixels, auto-release |
-| `grab 0` | Grab from camera 0 only |
-| `grab 1 keep` | Grab from camera 1, hold buffer open |
-| `release <idx>` | Manually release a held buffer |
-| `shm` | Dump full SHM pool state (refcounts, per-camera latest) |
-| `inspect <idx>` | Pixel stats for buffer N (min/max/mean + 5×5 sample grid) |
+| `health` | Ping with a 3 s deadline — prints `UP` / `DOWN` + status |
+| `state` | `GetSystemState` — status, camera count, aggregate FPS |
+| `start [cam_id]` | `StartAcquisition` — omit or pass `-1` for all cameras |
+| `stop [cam_id]` | `StopAcquisition` — omit or pass `-1` for all cameras |
+| `restart [cam_id]` | Stop then start (client-side; does not restart the process) |
 
-The `shm` and `inspect` commands read shared memory directly (read-only `OpenFileMapping` — no admin rights required on the consumer side).
+**Camera info**
+
+| Command | Action |
+|---|---|
+| `cameras` | `GetCameraInfo` for every camera — full state table |
+| `info <cam_id>` | `GetCameraInfo` for one camera |
+
+**Parameter control**
+
+| Command | Action |
+|---|---|
+| `set <name> <float> <int>` | `SetParameter` on all cameras |
+| `set <cam_id> <name> <float> <int>` | `SetParameter` on one camera |
+
+The first token is treated as a `cam_id` if it parses as an integer, otherwise as the node name (all cameras).  Examples:
+
+```
+set ExposureTime 5000.0 0       # all cameras
+set 0 ExposureTime 8000.0 0     # camera 0 only
+set -1 Gain 10.0 0              # all cameras (explicit)
+set 1 Width 0 2048              # camera 1, integer node
+```
+
+**Disk save**
+
+| Command | Action |
+|---|---|
+| `save` | `TriggerDiskSave` — flags next frame for write |
+| `savedir <path>` | `SetSaveDirectory` — change output path at runtime |
+
+Saved files are named `frame_cam<N>_<timestamp_ms>.raw` (raw binary, width × height bytes for Mono8).
+
+**Frame inspection**
+
+| Command | Action |
+|---|---|
+| `grab [cam_id] [keep]` | `GetLatestImageFrame` + SHM pixel inspect + auto-release |
+| `release <idx>` | `ReleaseImageFrame` — release a buffer held with `keep` |
+| `shm` | Dump full SHM pool state (refcounts, per-camera latest pointers) |
+| `inspect <idx>` | Pixel stats for buffer N (min/max/mean + 5×5 sample grid) — direct SHM read, no gRPC |
+
+The `shm` and `inspect` commands open shared memory read-only (`OpenFileMapping`) — no Administrator rights required on the consumer side.
 
 ---
 

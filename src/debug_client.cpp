@@ -93,8 +93,10 @@ static void InspectBuffer(int32_t idx) {
     }
     const double mean = static_cast<double>(sum) / static_cast<double>(n);
 
-    const int32_t w = hdr->image_width;
-    const int32_t h = hdr->image_height;
+    // Use per-buffer dimensions — these reflect the actual ROI at capture time,
+    // which may differ from hdr->image_width/height if the ROI was changed.
+    const int32_t w = hdr->buffer_width[idx];
+    const int32_t h = hdr->buffer_height[idx];
 
     std::cout << "  [SHM] buffer[" << idx << "] — "
               << n << " bytes  |  "
@@ -123,8 +125,8 @@ static void PrintShmState() {
         return;
     }
     const SharedMemoryHeader* hdr = shm.header();
-    std::cout << "  [SHM] " << hdr->image_width << "×" << hdr->image_height
-              << "×" << hdr->image_channels
+    std::cout << "  [SHM] allocated=" << hdr->image_width << "x" << hdr->image_height
+              << "x" << hdr->image_channels
               << "  pool=" << hdr->pool_size
               << "  cameras=" << hdr->num_cameras
               << "  global_latest=" << hdr->latest_buffer_index.load()
@@ -275,7 +277,7 @@ public:
         }
 
         for (int32_t i = 0; i < count; ++i) {
-            std::cout << "  ─── Camera " << i << " ───────────────────────────────\n";
+            std::cout << "  --- Camera " << i << " -----------------------------------\n";
             GetCameraInfo(i);
         }
     }
@@ -331,10 +333,10 @@ private:
                   << "  ip         : " << (s.ip_address().empty() ? "n/a"       : s.ip_address()) << '\n'
                   << "  acquiring  : " << (s.acquiring() ? "yes" : "no")                          << '\n'
                   << "  fps        : " << s.fps()                                                  << '\n'
-                  << "  resolution : " << s.width() << "×" << s.height()                          << '\n'
+                  << "  resolution : " << s.width() << "x" << s.height()                          << '\n'
                   << "  ROI offset : " << s.offset_x() << ", " << s.offset_y()                    << '\n'
-                  << "  binning    : " << s.binning_h() << "×" << s.binning_v()                   << '\n'
-                  << "  exposure   : " << s.exposure_us() << " µs\n"
+                  << "  binning    : " << s.binning_h() << "x" << s.binning_v()                   << '\n'
+                  << "  exposure   : " << s.exposure_us() << " us\n"
                   << "  gain       : " << s.gain_db()     << " dB\n";
     }
 
@@ -385,6 +387,10 @@ SHM diagnostics:
 }
 
 int main(int argc, char* argv[]) {
+    // Switch the console to UTF-8 so any Unicode that does slip through renders
+    // correctly.  All user-visible strings below use plain ASCII intentionally.
+    SetConsoleOutputCP(CP_UTF8);
+
     const std::string addr = (argc > 1) ? argv[1] : DEFAULT_ADDR;
 
     DebugClient client(addr);
