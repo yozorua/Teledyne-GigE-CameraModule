@@ -1,0 +1,56 @@
+syntax = "proto3";
+package camaramodule;
+
+service CameraControl {
+  // Output State
+  rpc GetSystemState (Empty) returns (SystemState);
+
+  // Control API & Parameters
+  rpc StartAcquisition (Empty) returns (CommandStatus);
+  rpc StopAcquisition  (Empty) returns (CommandStatus);
+  rpc SetParameter     (ParameterRequest) returns (CommandStatus);
+
+  // Save Photo Trigger
+  rpc TriggerDiskSave (Empty) returns (CommandStatus);
+
+  // Inter-process Buffer Management
+  rpc GetLatestImageFrame (FrameRequest)   returns (FrameInfo);
+  rpc ReleaseImageFrame   (ReleaseRequest) returns (CommandStatus);
+}
+
+message Empty {}
+
+message SystemState {
+  string status            = 1; // "IDLE", "ACQUIRING", "ERROR"
+  int32  connected_cameras = 2;
+  float  current_fps       = 3;
+}
+
+message ParameterRequest {
+  string param_name  = 1; // GenICam node name, e.g. "ExposureTime", "Gain", "Width"
+  float  float_value = 2;
+  int32  int_value   = 3;
+}
+
+message FrameRequest {
+  // 0-based camera index.  Pass -1 (or omit) to receive the most recent frame
+  // from any camera.
+  int32 camera_id = 1;
+}
+
+message FrameInfo {
+  int32 shared_memory_index = 1;
+  int64 timestamp           = 2; // milliseconds since Unix epoch
+  int32 width               = 3;
+  int32 height              = 4;
+  int32 camera_id           = 5; // which camera produced this frame
+}
+
+message ReleaseRequest {
+  int32 shared_memory_index = 1;
+}
+
+message CommandStatus {
+  bool   success = 1;
+  string message = 2;
+}
