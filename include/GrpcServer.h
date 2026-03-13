@@ -22,13 +22,13 @@ public:
                                 const camaramodule::Empty*  req,
                                 camaramodule::SystemState*  resp) override;
 
-    grpc::Status StartAcquisition(grpc::ServerContext*           ctx,
-                                  const camaramodule::Empty*     req,
-                                  camaramodule::CommandStatus*   resp) override;
+    grpc::Status StartAcquisition(grpc::ServerContext*              ctx,
+                                  const camaramodule::CameraRequest* req,
+                                  camaramodule::CommandStatus*       resp) override;
 
-    grpc::Status StopAcquisition(grpc::ServerContext*           ctx,
-                                 const camaramodule::Empty*     req,
-                                 camaramodule::CommandStatus*   resp) override;
+    grpc::Status StopAcquisition(grpc::ServerContext*              ctx,
+                                 const camaramodule::CameraRequest* req,
+                                 camaramodule::CommandStatus*       resp) override;
 
     grpc::Status SetParameter(grpc::ServerContext*                   ctx,
                               const camaramodule::ParameterRequest*  req,
@@ -37,6 +37,14 @@ public:
     grpc::Status TriggerDiskSave(grpc::ServerContext*           ctx,
                                  const camaramodule::Empty*     req,
                                  camaramodule::CommandStatus*   resp) override;
+
+    grpc::Status SetSaveDirectory(grpc::ServerContext*                      ctx,
+                                  const camaramodule::SaveDirectoryRequest* req,
+                                  camaramodule::CommandStatus*              resp) override;
+
+    grpc::Status GetCameraInfo(grpc::ServerContext*              ctx,
+                               const camaramodule::CameraRequest* req,
+                               camaramodule::CameraState*         resp) override;
 
     grpc::Status GetLatestImageFrame(grpc::ServerContext*              ctx,
                                      const camaramodule::FrameRequest* req,

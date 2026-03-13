@@ -2,34 +2,67 @@ syntax = "proto3";
 package camaramodule;
 
 service CameraControl {
-  // Output State
-  rpc GetSystemState (Empty) returns (SystemState);
+  // ── Module health & state ─────────────────────────────────────────────────
+  rpc GetSystemState      (Empty)                returns (SystemState);
 
-  // Control API & Parameters
-  rpc StartAcquisition (Empty) returns (CommandStatus);
-  rpc StopAcquisition  (Empty) returns (CommandStatus);
-  rpc SetParameter     (ParameterRequest) returns (CommandStatus);
+  // ── Acquisition control  (camera_id = -1 = all cameras) ──────────────────
+  rpc StartAcquisition    (CameraRequest)        returns (CommandStatus);
+  rpc StopAcquisition     (CameraRequest)        returns (CommandStatus);
 
-  // Save Photo Trigger
-  rpc TriggerDiskSave (Empty) returns (CommandStatus);
+  // ── Parameter control  (camera_id = -1 = all cameras) ────────────────────
+  rpc SetParameter        (ParameterRequest)     returns (CommandStatus);
 
-  // Inter-process Buffer Management
-  rpc GetLatestImageFrame (FrameRequest)   returns (FrameInfo);
-  rpc ReleaseImageFrame   (ReleaseRequest) returns (CommandStatus);
+  // ── Disk save ─────────────────────────────────────────────────────────────
+  rpc TriggerDiskSave     (Empty)                returns (CommandStatus);
+  rpc SetSaveDirectory    (SaveDirectoryRequest) returns (CommandStatus);
+
+  // ── Per-camera state ──────────────────────────────────────────────────────
+  rpc GetCameraInfo       (CameraRequest)        returns (CameraState);
+
+  // ── Inter-process buffer management ──────────────────────────────────────
+  rpc GetLatestImageFrame (FrameRequest)         returns (FrameInfo);
+  rpc ReleaseImageFrame   (ReleaseRequest)       returns (CommandStatus);
 }
 
 message Empty {}
 
+// 0-based camera index; -1 = all cameras (for start / stop / set)
+message CameraRequest {
+  int32 camera_id = 1;
+}
+
 message SystemState {
-  string status            = 1; // "IDLE", "ACQUIRING", "ERROR"
+  string status            = 1;  // "IDLE", "ACQUIRING", "PARTIAL", "ERROR"
   int32  connected_cameras = 2;
-  float  current_fps       = 3;
+  float  current_fps       = 3;  // aggregate FPS across all cameras
+}
+
+message CameraState {
+  int32  camera_id   = 1;
+  string model_name  = 2;
+  string serial      = 3;
+  string ip_address  = 4;
+  int32  width       = 5;
+  int32  height      = 6;
+  int32  offset_x    = 7;
+  int32  offset_y    = 8;
+  int32  binning_h   = 9;
+  int32  binning_v   = 10;
+  float  exposure_us = 11;  // microseconds
+  float  gain_db     = 12;
+  float  fps         = 13;
+  bool   acquiring   = 14;
 }
 
 message ParameterRequest {
-  string param_name  = 1; // GenICam node name, e.g. "ExposureTime", "Gain", "Width"
-  float  float_value = 2;
-  int32  int_value   = 3;
+  int32  camera_id   = 1;  // -1 = all cameras
+  string param_name  = 2;
+  float  float_value = 3;
+  int32  int_value   = 4;
+}
+
+message SaveDirectoryRequest {
+  string path = 1;
 }
 
 message FrameRequest {
@@ -40,10 +73,10 @@ message FrameRequest {
 
 message FrameInfo {
   int32 shared_memory_index = 1;
-  int64 timestamp           = 2; // milliseconds since Unix epoch
+  int64 timestamp           = 2;  // milliseconds since Unix epoch
   int32 width               = 3;
   int32 height              = 4;
-  int32 camera_id           = 5; // which camera produced this frame
+  int32 camera_id           = 5;
 }
 
 message ReleaseRequest {

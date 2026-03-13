@@ -10,7 +10,7 @@
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-static constexpr int32_t POOL_SIZE   = 10;
+static constexpr int32_t POOL_SIZE   = 20;  // 5 slots × MAX_CAMERAS
 static constexpr int32_t MAX_CAMERAS = 4;   // maximum supported cameras
 static constexpr LPCSTR  SHM_NAME    = "Global\\CameraImageBufferPool";
 

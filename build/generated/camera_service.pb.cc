@@ -55,6 +55,33 @@ struct SystemStateDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 SystemStateDefaultTypeInternal _SystemState_default_instance_;
 
+inline constexpr SaveDirectoryRequest::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        path_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()) {}
+
+template <typename>
+PROTOBUF_CONSTEXPR SaveDirectoryRequest::SaveDirectoryRequest(::_pbi::ConstantInitialized)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(SaveDirectoryRequest_class_data_.base()),
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(),
+#endif  // PROTOBUF_CUSTOM_VTABLE
+      _impl_(::_pbi::ConstantInitialized()) {
+}
+struct SaveDirectoryRequestDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR SaveDirectoryRequestDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~SaveDirectoryRequestDefaultTypeInternal() {}
+  union {
+    SaveDirectoryRequest _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 SaveDirectoryRequestDefaultTypeInternal _SaveDirectoryRequest_default_instance_;
+
 inline constexpr ReleaseRequest::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : _cached_size_{0},
@@ -86,6 +113,7 @@ inline constexpr ParameterRequest::Impl_::Impl_(
         param_name_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
+        camera_id_{0},
         float_value_{0},
         int_value_{0} {}
 
@@ -208,6 +236,75 @@ struct CommandStatusDefaultTypeInternal {
 
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 CommandStatusDefaultTypeInternal _CommandStatus_default_instance_;
+
+inline constexpr CameraState::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        model_name_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        serial_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        ip_address_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        camera_id_{0},
+        width_{0},
+        height_{0},
+        offset_x_{0},
+        offset_y_{0},
+        binning_h_{0},
+        binning_v_{0},
+        exposure_us_{0},
+        gain_db_{0},
+        fps_{0},
+        acquiring_{false} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR CameraState::CameraState(::_pbi::ConstantInitialized)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(CameraState_class_data_.base()),
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(),
+#endif  // PROTOBUF_CUSTOM_VTABLE
+      _impl_(::_pbi::ConstantInitialized()) {
+}
+struct CameraStateDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR CameraStateDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~CameraStateDefaultTypeInternal() {}
+  union {
+    CameraState _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 CameraStateDefaultTypeInternal _CameraState_default_instance_;
+
+inline constexpr CameraRequest::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        camera_id_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR CameraRequest::CameraRequest(::_pbi::ConstantInitialized)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(CameraRequest_class_data_.base()),
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(),
+#endif  // PROTOBUF_CUSTOM_VTABLE
+      _impl_(::_pbi::ConstantInitialized()) {
+}
+struct CameraRequestDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR CameraRequestDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~CameraRequestDefaultTypeInternal() {}
+  union {
+    CameraRequest _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 CameraRequestDefaultTypeInternal _CameraRequest_default_instance_;
 }  // namespace camaramodule
 static constexpr const ::_pb::EnumDescriptor* PROTOBUF_NONNULL* PROTOBUF_NULLABLE
     file_level_enum_descriptors_camera_5fservice_2eproto = nullptr;
@@ -218,6 +315,11 @@ const ::uint32_t
         protodesc_cold) = {
         0x000, // bitmap
         0x081, // bitmap
+        PROTOBUF_FIELD_OFFSET(::camaramodule::CameraRequest, _impl_._has_bits_),
+        4, // hasbit index offset
+        PROTOBUF_FIELD_OFFSET(::camaramodule::CameraRequest, _impl_.camera_id_),
+        0,
+        0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::camaramodule::SystemState, _impl_._has_bits_),
         6, // hasbit index offset
         PROTOBUF_FIELD_OFFSET(::camaramodule::SystemState, _impl_.status_),
@@ -227,14 +329,52 @@ const ::uint32_t
         1,
         2,
         0x081, // bitmap
-        PROTOBUF_FIELD_OFFSET(::camaramodule::ParameterRequest, _impl_._has_bits_),
-        6, // hasbit index offset
-        PROTOBUF_FIELD_OFFSET(::camaramodule::ParameterRequest, _impl_.param_name_),
-        PROTOBUF_FIELD_OFFSET(::camaramodule::ParameterRequest, _impl_.float_value_),
-        PROTOBUF_FIELD_OFFSET(::camaramodule::ParameterRequest, _impl_.int_value_),
+        PROTOBUF_FIELD_OFFSET(::camaramodule::CameraState, _impl_._has_bits_),
+        17, // hasbit index offset
+        PROTOBUF_FIELD_OFFSET(::camaramodule::CameraState, _impl_.camera_id_),
+        PROTOBUF_FIELD_OFFSET(::camaramodule::CameraState, _impl_.model_name_),
+        PROTOBUF_FIELD_OFFSET(::camaramodule::CameraState, _impl_.serial_),
+        PROTOBUF_FIELD_OFFSET(::camaramodule::CameraState, _impl_.ip_address_),
+        PROTOBUF_FIELD_OFFSET(::camaramodule::CameraState, _impl_.width_),
+        PROTOBUF_FIELD_OFFSET(::camaramodule::CameraState, _impl_.height_),
+        PROTOBUF_FIELD_OFFSET(::camaramodule::CameraState, _impl_.offset_x_),
+        PROTOBUF_FIELD_OFFSET(::camaramodule::CameraState, _impl_.offset_y_),
+        PROTOBUF_FIELD_OFFSET(::camaramodule::CameraState, _impl_.binning_h_),
+        PROTOBUF_FIELD_OFFSET(::camaramodule::CameraState, _impl_.binning_v_),
+        PROTOBUF_FIELD_OFFSET(::camaramodule::CameraState, _impl_.exposure_us_),
+        PROTOBUF_FIELD_OFFSET(::camaramodule::CameraState, _impl_.gain_db_),
+        PROTOBUF_FIELD_OFFSET(::camaramodule::CameraState, _impl_.fps_),
+        PROTOBUF_FIELD_OFFSET(::camaramodule::CameraState, _impl_.acquiring_),
+        3,
         0,
         1,
         2,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        0x081, // bitmap
+        PROTOBUF_FIELD_OFFSET(::camaramodule::ParameterRequest, _impl_._has_bits_),
+        7, // hasbit index offset
+        PROTOBUF_FIELD_OFFSET(::camaramodule::ParameterRequest, _impl_.camera_id_),
+        PROTOBUF_FIELD_OFFSET(::camaramodule::ParameterRequest, _impl_.param_name_),
+        PROTOBUF_FIELD_OFFSET(::camaramodule::ParameterRequest, _impl_.float_value_),
+        PROTOBUF_FIELD_OFFSET(::camaramodule::ParameterRequest, _impl_.int_value_),
+        1,
+        0,
+        2,
+        3,
+        0x081, // bitmap
+        PROTOBUF_FIELD_OFFSET(::camaramodule::SaveDirectoryRequest, _impl_._has_bits_),
+        4, // hasbit index offset
+        PROTOBUF_FIELD_OFFSET(::camaramodule::SaveDirectoryRequest, _impl_.path_),
+        0,
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::camaramodule::FrameRequest, _impl_._has_bits_),
         4, // hasbit index offset
@@ -270,17 +410,23 @@ const ::uint32_t
 static const ::_pbi::MigrationSchema
     schemas[] ABSL_ATTRIBUTE_SECTION_VARIABLE(protodesc_cold) = {
         {0, sizeof(::camaramodule::Empty)},
-        {1, sizeof(::camaramodule::SystemState)},
-        {10, sizeof(::camaramodule::ParameterRequest)},
-        {19, sizeof(::camaramodule::FrameRequest)},
-        {24, sizeof(::camaramodule::FrameInfo)},
-        {37, sizeof(::camaramodule::ReleaseRequest)},
-        {42, sizeof(::camaramodule::CommandStatus)},
+        {1, sizeof(::camaramodule::CameraRequest)},
+        {6, sizeof(::camaramodule::SystemState)},
+        {15, sizeof(::camaramodule::CameraState)},
+        {46, sizeof(::camaramodule::ParameterRequest)},
+        {57, sizeof(::camaramodule::SaveDirectoryRequest)},
+        {62, sizeof(::camaramodule::FrameRequest)},
+        {67, sizeof(::camaramodule::FrameInfo)},
+        {80, sizeof(::camaramodule::ReleaseRequest)},
+        {85, sizeof(::camaramodule::CommandStatus)},
 };
 static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
     &::camaramodule::_Empty_default_instance_._instance,
+    &::camaramodule::_CameraRequest_default_instance_._instance,
     &::camaramodule::_SystemState_default_instance_._instance,
+    &::camaramodule::_CameraState_default_instance_._instance,
     &::camaramodule::_ParameterRequest_default_instance_._instance,
+    &::camaramodule::_SaveDirectoryRequest_default_instance_._instance,
     &::camaramodule::_FrameRequest_default_instance_._instance,
     &::camaramodule::_FrameInfo_default_instance_._instance,
     &::camaramodule::_ReleaseRequest_default_instance_._instance,
@@ -289,42 +435,55 @@ static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
 const char descriptor_table_protodef_camera_5fservice_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
     protodesc_cold) = {
     "\n\024camera_service.proto\022\014camaramodule\"\007\n\005"
-    "Empty\"M\n\013SystemState\022\016\n\006status\030\001 \001(\t\022\031\n\021"
-    "connected_cameras\030\002 \001(\005\022\023\n\013current_fps\030\003"
-    " \001(\002\"N\n\020ParameterRequest\022\022\n\nparam_name\030\001"
-    " \001(\t\022\023\n\013float_value\030\002 \001(\002\022\021\n\tint_value\030\003"
-    " \001(\005\"!\n\014FrameRequest\022\021\n\tcamera_id\030\001 \001(\005\""
-    "m\n\tFrameInfo\022\033\n\023shared_memory_index\030\001 \001("
-    "\005\022\021\n\ttimestamp\030\002 \001(\003\022\r\n\005width\030\003 \001(\005\022\016\n\006h"
-    "eight\030\004 \001(\005\022\021\n\tcamera_id\030\005 \001(\005\"-\n\016Releas"
-    "eRequest\022\033\n\023shared_memory_index\030\001 \001(\005\"1\n"
-    "\rCommandStatus\022\017\n\007success\030\001 \001(\010\022\017\n\007messa"
-    "ge\030\002 \001(\t2\212\004\n\rCameraControl\022@\n\016GetSystemS"
-    "tate\022\023.camaramodule.Empty\032\031.camaramodule"
-    ".SystemState\022D\n\020StartAcquisition\022\023.camar"
-    "amodule.Empty\032\033.camaramodule.CommandStat"
-    "us\022C\n\017StopAcquisition\022\023.camaramodule.Emp"
-    "ty\032\033.camaramodule.CommandStatus\022K\n\014SetPa"
-    "rameter\022\036.camaramodule.ParameterRequest\032"
-    "\033.camaramodule.CommandStatus\022C\n\017TriggerD"
-    "iskSave\022\023.camaramodule.Empty\032\033.camaramod"
-    "ule.CommandStatus\022J\n\023GetLatestImageFrame"
-    "\022\032.camaramodule.FrameRequest\032\027.camaramod"
-    "ule.FrameInfo\022N\n\021ReleaseImageFrame\022\034.cam"
-    "aramodule.ReleaseRequest\032\033.camaramodule."
-    "CommandStatusb\006proto3"
+    "Empty\"\"\n\rCameraRequest\022\021\n\tcamera_id\030\001 \001("
+    "\005\"M\n\013SystemState\022\016\n\006status\030\001 \001(\t\022\031\n\021conn"
+    "ected_cameras\030\002 \001(\005\022\023\n\013current_fps\030\003 \001(\002"
+    "\"\207\002\n\013CameraState\022\021\n\tcamera_id\030\001 \001(\005\022\022\n\nm"
+    "odel_name\030\002 \001(\t\022\016\n\006serial\030\003 \001(\t\022\022\n\nip_ad"
+    "dress\030\004 \001(\t\022\r\n\005width\030\005 \001(\005\022\016\n\006height\030\006 \001"
+    "(\005\022\020\n\010offset_x\030\007 \001(\005\022\020\n\010offset_y\030\010 \001(\005\022\021"
+    "\n\tbinning_h\030\t \001(\005\022\021\n\tbinning_v\030\n \001(\005\022\023\n\013"
+    "exposure_us\030\013 \001(\002\022\017\n\007gain_db\030\014 \001(\002\022\013\n\003fp"
+    "s\030\r \001(\002\022\021\n\tacquiring\030\016 \001(\010\"a\n\020ParameterR"
+    "equest\022\021\n\tcamera_id\030\001 \001(\005\022\022\n\nparam_name\030"
+    "\002 \001(\t\022\023\n\013float_value\030\003 \001(\002\022\021\n\tint_value\030"
+    "\004 \001(\005\"$\n\024SaveDirectoryRequest\022\014\n\004path\030\001 "
+    "\001(\t\"!\n\014FrameRequest\022\021\n\tcamera_id\030\001 \001(\005\"m"
+    "\n\tFrameInfo\022\033\n\023shared_memory_index\030\001 \001(\005"
+    "\022\021\n\ttimestamp\030\002 \001(\003\022\r\n\005width\030\003 \001(\005\022\016\n\006he"
+    "ight\030\004 \001(\005\022\021\n\tcamera_id\030\005 \001(\005\"-\n\016Release"
+    "Request\022\033\n\023shared_memory_index\030\001 \001(\005\"1\n\r"
+    "CommandStatus\022\017\n\007success\030\001 \001(\010\022\017\n\007messag"
+    "e\030\002 \001(\t2\270\005\n\rCameraControl\022@\n\016GetSystemSt"
+    "ate\022\023.camaramodule.Empty\032\031.camaramodule."
+    "SystemState\022L\n\020StartAcquisition\022\033.camara"
+    "module.CameraRequest\032\033.camaramodule.Comm"
+    "andStatus\022K\n\017StopAcquisition\022\033.camaramod"
+    "ule.CameraRequest\032\033.camaramodule.Command"
+    "Status\022K\n\014SetParameter\022\036.camaramodule.Pa"
+    "rameterRequest\032\033.camaramodule.CommandSta"
+    "tus\022C\n\017TriggerDiskSave\022\023.camaramodule.Em"
+    "pty\032\033.camaramodule.CommandStatus\022S\n\020SetS"
+    "aveDirectory\022\".camaramodule.SaveDirector"
+    "yRequest\032\033.camaramodule.CommandStatus\022G\n"
+    "\rGetCameraInfo\022\033.camaramodule.CameraRequ"
+    "est\032\031.camaramodule.CameraState\022J\n\023GetLat"
+    "estImageFrame\022\032.camaramodule.FrameReques"
+    "t\032\027.camaramodule.FrameInfo\022N\n\021ReleaseIma"
+    "geFrame\022\034.camaramodule.ReleaseRequest\032\033."
+    "camaramodule.CommandStatusb\006proto3"
 };
 static ::absl::once_flag descriptor_table_camera_5fservice_2eproto_once;
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_camera_5fservice_2eproto = {
     false,
     false,
-    981,
+    1514,
     descriptor_table_protodef_camera_5fservice_2eproto,
     "camera_service.proto",
     &descriptor_table_camera_5fservice_2eproto_once,
     nullptr,
     0,
-    7,
+    10,
     schemas,
     file_default_instances,
     TableStruct_camera_5fservice_2eproto::offsets,
@@ -440,6 +599,254 @@ Empty::_table_ = {
 
 ::google::protobuf::Metadata Empty::GetMetadata() const {
   return ::google::protobuf::internal::ZeroFieldsBase::GetMetadataImpl(GetClassData()->full());
+}
+// ===================================================================
+
+class CameraRequest::_Internal {
+ public:
+  using HasBits =
+      decltype(::std::declval<CameraRequest>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+      8 * PROTOBUF_FIELD_OFFSET(CameraRequest, _impl_._has_bits_);
+};
+
+CameraRequest::CameraRequest(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, CameraRequest_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:camaramodule.CameraRequest)
+}
+CameraRequest::CameraRequest(
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const CameraRequest& from)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, CameraRequest_class_data_.base()),
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena),
+#endif  // PROTOBUF_CUSTOM_VTABLE
+      _impl_(from._impl_) {
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+}
+PROTOBUF_NDEBUG_INLINE CameraRequest::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+      : _cached_size_{0} {}
+
+inline void CameraRequest::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  _impl_.camera_id_ = {};
+}
+CameraRequest::~CameraRequest() {
+  // @@protoc_insertion_point(destructor:camaramodule.CameraRequest)
+  SharedDtor(*this);
+}
+inline void CameraRequest::SharedDtor(MessageLite& self) {
+  CameraRequest& this_ = static_cast<CameraRequest&>(self);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  this_._internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  ABSL_DCHECK(this_.GetArena() == nullptr);
+  this_._impl_.~Impl_();
+}
+
+inline void* PROTOBUF_NONNULL CameraRequest::PlacementNew_(
+    const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
+  return ::new (mem) CameraRequest(arena);
+}
+constexpr auto CameraRequest::InternalNewImpl_() {
+  return ::google::protobuf::internal::MessageCreator::ZeroInit(sizeof(CameraRequest),
+                                            alignof(CameraRequest));
+}
+constexpr auto CameraRequest::InternalGenerateClassData_() {
+  return ::google::protobuf::internal::ClassDataFull{
+      ::google::protobuf::internal::ClassData{
+          &_CameraRequest_default_instance_._instance,
+          &_table_.header,
+          nullptr,  // OnDemandRegisterArenaDtor
+          nullptr,  // IsInitialized
+          &CameraRequest::MergeImpl,
+          ::google::protobuf::Message::GetNewImpl<CameraRequest>(),
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+          &CameraRequest::SharedDtor,
+          ::google::protobuf::Message::GetClearImpl<CameraRequest>(), &CameraRequest::ByteSizeLong,
+              &CameraRequest::_InternalSerialize,
+#endif  // PROTOBUF_CUSTOM_VTABLE
+          PROTOBUF_FIELD_OFFSET(CameraRequest, _impl_._cached_size_),
+          false,
+      },
+      &CameraRequest::kDescriptorMethods,
+      &descriptor_table_camera_5fservice_2eproto,
+      nullptr,  // tracker
+  };
+}
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const
+    ::google::protobuf::internal::ClassDataFull CameraRequest_class_data_ =
+        CameraRequest::InternalGenerateClassData_();
+
+PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+CameraRequest::GetClassData() const {
+  ::google::protobuf::internal::PrefetchToLocalCache(&CameraRequest_class_data_);
+  ::google::protobuf::internal::PrefetchToLocalCache(CameraRequest_class_data_.tc_table);
+  return CameraRequest_class_data_.base();
+}
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<0, 1, 0, 0, 2>
+CameraRequest::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(CameraRequest, _impl_._has_bits_),
+    0, // no _extensions_
+    1, 0,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967294,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    1,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    CameraRequest_class_data_.base(),
+    nullptr,  // post_loop_handler
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::camaramodule::CameraRequest>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // int32 camera_id = 1;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(CameraRequest, _impl_.camera_id_), 0>(),
+     {8, 0, 0,
+      PROTOBUF_FIELD_OFFSET(CameraRequest, _impl_.camera_id_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // int32 camera_id = 1;
+    {PROTOBUF_FIELD_OFFSET(CameraRequest, _impl_.camera_id_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt32)},
+  }},
+  // no aux_entries
+  {{
+  }},
+};
+PROTOBUF_NOINLINE void CameraRequest::Clear() {
+// @@protoc_insertion_point(message_clear_start:camaramodule.CameraRequest)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.camera_id_ = 0;
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::uint8_t* PROTOBUF_NONNULL CameraRequest::_InternalSerialize(
+    const ::google::protobuf::MessageLite& base, ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) {
+  const CameraRequest& this_ = static_cast<const CameraRequest&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::uint8_t* PROTOBUF_NONNULL CameraRequest::_InternalSerialize(
+    ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+  const CameraRequest& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(serialize_to_array_start:camaramodule.CameraRequest)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = this_._impl_._has_bits_[0];
+  // int32 camera_id = 1;
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+    if (this_._internal_camera_id() != 0) {
+      target =
+          ::google::protobuf::internal::WireFormatLite::WriteInt32ToArrayWithField<1>(
+              stream, this_._internal_camera_id(), target);
+    }
+  }
+
+  if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            this_._internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:camaramodule.CameraRequest)
+  return target;
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::size_t CameraRequest::ByteSizeLong(const MessageLite& base) {
+  const CameraRequest& this_ = static_cast<const CameraRequest&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::size_t CameraRequest::ByteSizeLong() const {
+  const CameraRequest& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  // @@protoc_insertion_point(message_byte_size_start:camaramodule.CameraRequest)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void)cached_has_bits;
+
+   {
+    // int32 camera_id = 1;
+    cached_has_bits = this_._impl_._has_bits_[0];
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (this_._internal_camera_id() != 0) {
+        total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+            this_._internal_camera_id());
+      }
+    }
+  }
+  return this_.MaybeComputeUnknownFieldsSize(total_size,
+                                             &this_._impl_._cached_size_);
+}
+
+void CameraRequest::MergeImpl(::google::protobuf::MessageLite& to_msg,
+                            const ::google::protobuf::MessageLite& from_msg) {
+   auto* const _this =
+      static_cast<CameraRequest*>(&to_msg);
+  auto& from = static_cast<const CameraRequest&>(from_msg);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    from.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(class_specific_merge_from_start:camaramodule.CameraRequest)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+    if (from._internal_camera_id() != 0) {
+      _this->_impl_.camera_id_ = from._impl_.camera_id_;
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+}
+
+void CameraRequest::CopyFrom(const CameraRequest& from) {
+  // @@protoc_insertion_point(class_specific_copy_from_start:camaramodule.CameraRequest)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+
+void CameraRequest::InternalSwap(CameraRequest* PROTOBUF_RESTRICT PROTOBUF_NONNULL other) {
+  using ::std::swap;
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  swap(_impl_.camera_id_, other->_impl_.camera_id_);
+}
+
+::google::protobuf::Metadata CameraRequest::GetMetadata() const {
+  return ::google::protobuf::Message::GetMetadataImpl(GetClassData()->full());
 }
 // ===================================================================
 
@@ -799,6 +1206,694 @@ void SystemState::InternalSwap(SystemState* PROTOBUF_RESTRICT PROTOBUF_NONNULL o
 }
 // ===================================================================
 
+class CameraState::_Internal {
+ public:
+  using HasBits =
+      decltype(::std::declval<CameraState>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+      8 * PROTOBUF_FIELD_OFFSET(CameraState, _impl_._has_bits_);
+};
+
+CameraState::CameraState(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, CameraState_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:camaramodule.CameraState)
+}
+PROTOBUF_NDEBUG_INLINE CameraState::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+    [[maybe_unused]] const ::camaramodule::CameraState& from_msg)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        model_name_(arena, from.model_name_),
+        serial_(arena, from.serial_),
+        ip_address_(arena, from.ip_address_) {}
+
+CameraState::CameraState(
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena,
+    const CameraState& from)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, CameraState_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  CameraState* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
+  ::memcpy(reinterpret_cast<char*>(&_impl_) +
+               offsetof(Impl_, camera_id_),
+           reinterpret_cast<const char*>(&from._impl_) +
+               offsetof(Impl_, camera_id_),
+           offsetof(Impl_, acquiring_) -
+               offsetof(Impl_, camera_id_) +
+               sizeof(Impl_::acquiring_));
+
+  // @@protoc_insertion_point(copy_constructor:camaramodule.CameraState)
+}
+PROTOBUF_NDEBUG_INLINE CameraState::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+      : _cached_size_{0},
+        model_name_(arena),
+        serial_(arena),
+        ip_address_(arena) {}
+
+inline void CameraState::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char*>(&_impl_) +
+               offsetof(Impl_, camera_id_),
+           0,
+           offsetof(Impl_, acquiring_) -
+               offsetof(Impl_, camera_id_) +
+               sizeof(Impl_::acquiring_));
+}
+CameraState::~CameraState() {
+  // @@protoc_insertion_point(destructor:camaramodule.CameraState)
+  SharedDtor(*this);
+}
+inline void CameraState::SharedDtor(MessageLite& self) {
+  CameraState& this_ = static_cast<CameraState&>(self);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  this_._internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  ABSL_DCHECK(this_.GetArena() == nullptr);
+  this_._impl_.model_name_.Destroy();
+  this_._impl_.serial_.Destroy();
+  this_._impl_.ip_address_.Destroy();
+  this_._impl_.~Impl_();
+}
+
+inline void* PROTOBUF_NONNULL CameraState::PlacementNew_(
+    const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
+  return ::new (mem) CameraState(arena);
+}
+constexpr auto CameraState::InternalNewImpl_() {
+  return ::google::protobuf::internal::MessageCreator::CopyInit(sizeof(CameraState),
+                                            alignof(CameraState));
+}
+constexpr auto CameraState::InternalGenerateClassData_() {
+  return ::google::protobuf::internal::ClassDataFull{
+      ::google::protobuf::internal::ClassData{
+          &_CameraState_default_instance_._instance,
+          &_table_.header,
+          nullptr,  // OnDemandRegisterArenaDtor
+          nullptr,  // IsInitialized
+          &CameraState::MergeImpl,
+          ::google::protobuf::Message::GetNewImpl<CameraState>(),
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+          &CameraState::SharedDtor,
+          ::google::protobuf::Message::GetClearImpl<CameraState>(), &CameraState::ByteSizeLong,
+              &CameraState::_InternalSerialize,
+#endif  // PROTOBUF_CUSTOM_VTABLE
+          PROTOBUF_FIELD_OFFSET(CameraState, _impl_._cached_size_),
+          false,
+      },
+      &CameraState::kDescriptorMethods,
+      &descriptor_table_camera_5fservice_2eproto,
+      nullptr,  // tracker
+  };
+}
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const
+    ::google::protobuf::internal::ClassDataFull CameraState_class_data_ =
+        CameraState::InternalGenerateClassData_();
+
+PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+CameraState::GetClassData() const {
+  ::google::protobuf::internal::PrefetchToLocalCache(&CameraState_class_data_);
+  ::google::protobuf::internal::PrefetchToLocalCache(CameraState_class_data_.tc_table);
+  return CameraState_class_data_.base();
+}
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<4, 14, 0, 67, 2>
+CameraState::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(CameraState, _impl_._has_bits_),
+    0, // no _extensions_
+    14, 120,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294950912,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    14,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    CameraState_class_data_.base(),
+    nullptr,  // post_loop_handler
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::camaramodule::CameraState>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // int32 camera_id = 1;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(CameraState, _impl_.camera_id_), 3>(),
+     {8, 3, 0,
+      PROTOBUF_FIELD_OFFSET(CameraState, _impl_.camera_id_)}},
+    // string model_name = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 0, 0,
+      PROTOBUF_FIELD_OFFSET(CameraState, _impl_.model_name_)}},
+    // string serial = 3;
+    {::_pbi::TcParser::FastUS1,
+     {26, 1, 0,
+      PROTOBUF_FIELD_OFFSET(CameraState, _impl_.serial_)}},
+    // string ip_address = 4;
+    {::_pbi::TcParser::FastUS1,
+     {34, 2, 0,
+      PROTOBUF_FIELD_OFFSET(CameraState, _impl_.ip_address_)}},
+    // int32 width = 5;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(CameraState, _impl_.width_), 4>(),
+     {40, 4, 0,
+      PROTOBUF_FIELD_OFFSET(CameraState, _impl_.width_)}},
+    // int32 height = 6;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(CameraState, _impl_.height_), 5>(),
+     {48, 5, 0,
+      PROTOBUF_FIELD_OFFSET(CameraState, _impl_.height_)}},
+    // int32 offset_x = 7;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(CameraState, _impl_.offset_x_), 6>(),
+     {56, 6, 0,
+      PROTOBUF_FIELD_OFFSET(CameraState, _impl_.offset_x_)}},
+    // int32 offset_y = 8;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(CameraState, _impl_.offset_y_), 7>(),
+     {64, 7, 0,
+      PROTOBUF_FIELD_OFFSET(CameraState, _impl_.offset_y_)}},
+    // int32 binning_h = 9;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(CameraState, _impl_.binning_h_), 8>(),
+     {72, 8, 0,
+      PROTOBUF_FIELD_OFFSET(CameraState, _impl_.binning_h_)}},
+    // int32 binning_v = 10;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(CameraState, _impl_.binning_v_), 9>(),
+     {80, 9, 0,
+      PROTOBUF_FIELD_OFFSET(CameraState, _impl_.binning_v_)}},
+    // float exposure_us = 11;
+    {::_pbi::TcParser::FastF32S1,
+     {93, 10, 0,
+      PROTOBUF_FIELD_OFFSET(CameraState, _impl_.exposure_us_)}},
+    // float gain_db = 12;
+    {::_pbi::TcParser::FastF32S1,
+     {101, 11, 0,
+      PROTOBUF_FIELD_OFFSET(CameraState, _impl_.gain_db_)}},
+    // float fps = 13;
+    {::_pbi::TcParser::FastF32S1,
+     {109, 12, 0,
+      PROTOBUF_FIELD_OFFSET(CameraState, _impl_.fps_)}},
+    // bool acquiring = 14;
+    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(CameraState, _impl_.acquiring_), 13>(),
+     {112, 13, 0,
+      PROTOBUF_FIELD_OFFSET(CameraState, _impl_.acquiring_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // int32 camera_id = 1;
+    {PROTOBUF_FIELD_OFFSET(CameraState, _impl_.camera_id_), _Internal::kHasBitsOffset + 3, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt32)},
+    // string model_name = 2;
+    {PROTOBUF_FIELD_OFFSET(CameraState, _impl_.model_name_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string serial = 3;
+    {PROTOBUF_FIELD_OFFSET(CameraState, _impl_.serial_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string ip_address = 4;
+    {PROTOBUF_FIELD_OFFSET(CameraState, _impl_.ip_address_), _Internal::kHasBitsOffset + 2, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // int32 width = 5;
+    {PROTOBUF_FIELD_OFFSET(CameraState, _impl_.width_), _Internal::kHasBitsOffset + 4, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt32)},
+    // int32 height = 6;
+    {PROTOBUF_FIELD_OFFSET(CameraState, _impl_.height_), _Internal::kHasBitsOffset + 5, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt32)},
+    // int32 offset_x = 7;
+    {PROTOBUF_FIELD_OFFSET(CameraState, _impl_.offset_x_), _Internal::kHasBitsOffset + 6, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt32)},
+    // int32 offset_y = 8;
+    {PROTOBUF_FIELD_OFFSET(CameraState, _impl_.offset_y_), _Internal::kHasBitsOffset + 7, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt32)},
+    // int32 binning_h = 9;
+    {PROTOBUF_FIELD_OFFSET(CameraState, _impl_.binning_h_), _Internal::kHasBitsOffset + 8, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt32)},
+    // int32 binning_v = 10;
+    {PROTOBUF_FIELD_OFFSET(CameraState, _impl_.binning_v_), _Internal::kHasBitsOffset + 9, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt32)},
+    // float exposure_us = 11;
+    {PROTOBUF_FIELD_OFFSET(CameraState, _impl_.exposure_us_), _Internal::kHasBitsOffset + 10, 0, (0 | ::_fl::kFcOptional | ::_fl::kFloat)},
+    // float gain_db = 12;
+    {PROTOBUF_FIELD_OFFSET(CameraState, _impl_.gain_db_), _Internal::kHasBitsOffset + 11, 0, (0 | ::_fl::kFcOptional | ::_fl::kFloat)},
+    // float fps = 13;
+    {PROTOBUF_FIELD_OFFSET(CameraState, _impl_.fps_), _Internal::kHasBitsOffset + 12, 0, (0 | ::_fl::kFcOptional | ::_fl::kFloat)},
+    // bool acquiring = 14;
+    {PROTOBUF_FIELD_OFFSET(CameraState, _impl_.acquiring_), _Internal::kHasBitsOffset + 13, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
+  }},
+  // no aux_entries
+  {{
+    "\30\0\12\6\12\0\0\0\0\0\0\0\0\0\0\0"
+    "camaramodule.CameraState"
+    "model_name"
+    "serial"
+    "ip_address"
+  }},
+};
+PROTOBUF_NOINLINE void CameraState::Clear() {
+// @@protoc_insertion_point(message_clear_start:camaramodule.CameraState)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  cached_has_bits = _impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x00000007U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      _impl_.model_name_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      _impl_.serial_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+      _impl_.ip_address_.ClearNonDefaultToEmpty();
+    }
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x000000f8U)) {
+    ::memset(&_impl_.camera_id_, 0, static_cast<::size_t>(
+        reinterpret_cast<char*>(&_impl_.offset_y_) -
+        reinterpret_cast<char*>(&_impl_.camera_id_)) + sizeof(_impl_.offset_y_));
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x00003f00U)) {
+    ::memset(&_impl_.binning_h_, 0, static_cast<::size_t>(
+        reinterpret_cast<char*>(&_impl_.acquiring_) -
+        reinterpret_cast<char*>(&_impl_.binning_h_)) + sizeof(_impl_.acquiring_));
+  }
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::uint8_t* PROTOBUF_NONNULL CameraState::_InternalSerialize(
+    const ::google::protobuf::MessageLite& base, ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) {
+  const CameraState& this_ = static_cast<const CameraState&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::uint8_t* PROTOBUF_NONNULL CameraState::_InternalSerialize(
+    ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+  const CameraState& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(serialize_to_array_start:camaramodule.CameraState)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = this_._impl_._has_bits_[0];
+  // int32 camera_id = 1;
+  if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+    if (this_._internal_camera_id() != 0) {
+      target =
+          ::google::protobuf::internal::WireFormatLite::WriteInt32ToArrayWithField<1>(
+              stream, this_._internal_camera_id(), target);
+    }
+  }
+
+  // string model_name = 2;
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+    if (!this_._internal_model_name().empty()) {
+      const ::std::string& _s = this_._internal_model_name();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "camaramodule.CameraState.model_name");
+      target = stream->WriteStringMaybeAliased(2, _s, target);
+    }
+  }
+
+  // string serial = 3;
+  if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+    if (!this_._internal_serial().empty()) {
+      const ::std::string& _s = this_._internal_serial();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "camaramodule.CameraState.serial");
+      target = stream->WriteStringMaybeAliased(3, _s, target);
+    }
+  }
+
+  // string ip_address = 4;
+  if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+    if (!this_._internal_ip_address().empty()) {
+      const ::std::string& _s = this_._internal_ip_address();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "camaramodule.CameraState.ip_address");
+      target = stream->WriteStringMaybeAliased(4, _s, target);
+    }
+  }
+
+  // int32 width = 5;
+  if (CheckHasBit(cached_has_bits, 0x00000010U)) {
+    if (this_._internal_width() != 0) {
+      target =
+          ::google::protobuf::internal::WireFormatLite::WriteInt32ToArrayWithField<5>(
+              stream, this_._internal_width(), target);
+    }
+  }
+
+  // int32 height = 6;
+  if (CheckHasBit(cached_has_bits, 0x00000020U)) {
+    if (this_._internal_height() != 0) {
+      target =
+          ::google::protobuf::internal::WireFormatLite::WriteInt32ToArrayWithField<6>(
+              stream, this_._internal_height(), target);
+    }
+  }
+
+  // int32 offset_x = 7;
+  if (CheckHasBit(cached_has_bits, 0x00000040U)) {
+    if (this_._internal_offset_x() != 0) {
+      target =
+          ::google::protobuf::internal::WireFormatLite::WriteInt32ToArrayWithField<7>(
+              stream, this_._internal_offset_x(), target);
+    }
+  }
+
+  // int32 offset_y = 8;
+  if (CheckHasBit(cached_has_bits, 0x00000080U)) {
+    if (this_._internal_offset_y() != 0) {
+      target =
+          ::google::protobuf::internal::WireFormatLite::WriteInt32ToArrayWithField<8>(
+              stream, this_._internal_offset_y(), target);
+    }
+  }
+
+  // int32 binning_h = 9;
+  if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+    if (this_._internal_binning_h() != 0) {
+      target =
+          ::google::protobuf::internal::WireFormatLite::WriteInt32ToArrayWithField<9>(
+              stream, this_._internal_binning_h(), target);
+    }
+  }
+
+  // int32 binning_v = 10;
+  if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+    if (this_._internal_binning_v() != 0) {
+      target =
+          ::google::protobuf::internal::WireFormatLite::WriteInt32ToArrayWithField<10>(
+              stream, this_._internal_binning_v(), target);
+    }
+  }
+
+  // float exposure_us = 11;
+  if (CheckHasBit(cached_has_bits, 0x00000400U)) {
+    if (::absl::bit_cast<::uint32_t>(this_._internal_exposure_us()) != 0) {
+      target = stream->EnsureSpace(target);
+      target = ::_pbi::WireFormatLite::WriteFloatToArray(
+          11, this_._internal_exposure_us(), target);
+    }
+  }
+
+  // float gain_db = 12;
+  if (CheckHasBit(cached_has_bits, 0x00000800U)) {
+    if (::absl::bit_cast<::uint32_t>(this_._internal_gain_db()) != 0) {
+      target = stream->EnsureSpace(target);
+      target = ::_pbi::WireFormatLite::WriteFloatToArray(
+          12, this_._internal_gain_db(), target);
+    }
+  }
+
+  // float fps = 13;
+  if (CheckHasBit(cached_has_bits, 0x00001000U)) {
+    if (::absl::bit_cast<::uint32_t>(this_._internal_fps()) != 0) {
+      target = stream->EnsureSpace(target);
+      target = ::_pbi::WireFormatLite::WriteFloatToArray(
+          13, this_._internal_fps(), target);
+    }
+  }
+
+  // bool acquiring = 14;
+  if (CheckHasBit(cached_has_bits, 0x00002000U)) {
+    if (this_._internal_acquiring() != 0) {
+      target = stream->EnsureSpace(target);
+      target = ::_pbi::WireFormatLite::WriteBoolToArray(
+          14, this_._internal_acquiring(), target);
+    }
+  }
+
+  if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            this_._internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:camaramodule.CameraState)
+  return target;
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::size_t CameraState::ByteSizeLong(const MessageLite& base) {
+  const CameraState& this_ = static_cast<const CameraState&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::size_t CameraState::ByteSizeLong() const {
+  const CameraState& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  // @@protoc_insertion_point(message_byte_size_start:camaramodule.CameraState)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void)cached_has_bits;
+
+  ::_pbi::Prefetch5LinesFrom7Lines(&this_);
+  cached_has_bits = this_._impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x000000ffU)) {
+    // string model_name = 2;
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (!this_._internal_model_name().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_model_name());
+      }
+    }
+    // string serial = 3;
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (!this_._internal_serial().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_serial());
+      }
+    }
+    // string ip_address = 4;
+    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+      if (!this_._internal_ip_address().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_ip_address());
+      }
+    }
+    // int32 camera_id = 1;
+    if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+      if (this_._internal_camera_id() != 0) {
+        total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+            this_._internal_camera_id());
+      }
+    }
+    // int32 width = 5;
+    if (CheckHasBit(cached_has_bits, 0x00000010U)) {
+      if (this_._internal_width() != 0) {
+        total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+            this_._internal_width());
+      }
+    }
+    // int32 height = 6;
+    if (CheckHasBit(cached_has_bits, 0x00000020U)) {
+      if (this_._internal_height() != 0) {
+        total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+            this_._internal_height());
+      }
+    }
+    // int32 offset_x = 7;
+    if (CheckHasBit(cached_has_bits, 0x00000040U)) {
+      if (this_._internal_offset_x() != 0) {
+        total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+            this_._internal_offset_x());
+      }
+    }
+    // int32 offset_y = 8;
+    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
+      if (this_._internal_offset_y() != 0) {
+        total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+            this_._internal_offset_y());
+      }
+    }
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x00003f00U)) {
+    // int32 binning_h = 9;
+    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+      if (this_._internal_binning_h() != 0) {
+        total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+            this_._internal_binning_h());
+      }
+    }
+    // int32 binning_v = 10;
+    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+      if (this_._internal_binning_v() != 0) {
+        total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+            this_._internal_binning_v());
+      }
+    }
+    // float exposure_us = 11;
+    if (CheckHasBit(cached_has_bits, 0x00000400U)) {
+      if (::absl::bit_cast<::uint32_t>(this_._internal_exposure_us()) != 0) {
+        total_size += 5;
+      }
+    }
+    // float gain_db = 12;
+    if (CheckHasBit(cached_has_bits, 0x00000800U)) {
+      if (::absl::bit_cast<::uint32_t>(this_._internal_gain_db()) != 0) {
+        total_size += 5;
+      }
+    }
+    // float fps = 13;
+    if (CheckHasBit(cached_has_bits, 0x00001000U)) {
+      if (::absl::bit_cast<::uint32_t>(this_._internal_fps()) != 0) {
+        total_size += 5;
+      }
+    }
+    // bool acquiring = 14;
+    if (CheckHasBit(cached_has_bits, 0x00002000U)) {
+      if (this_._internal_acquiring() != 0) {
+        total_size += 2;
+      }
+    }
+  }
+  return this_.MaybeComputeUnknownFieldsSize(total_size,
+                                             &this_._impl_._cached_size_);
+}
+
+void CameraState::MergeImpl(::google::protobuf::MessageLite& to_msg,
+                            const ::google::protobuf::MessageLite& from_msg) {
+   auto* const _this =
+      static_cast<CameraState*>(&to_msg);
+  auto& from = static_cast<const CameraState&>(from_msg);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    from.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(class_specific_merge_from_start:camaramodule.CameraState)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x000000ffU)) {
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (!from._internal_model_name().empty()) {
+        _this->_internal_set_model_name(from._internal_model_name());
+      } else {
+        if (_this->_impl_.model_name_.IsDefault()) {
+          _this->_internal_set_model_name("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (!from._internal_serial().empty()) {
+        _this->_internal_set_serial(from._internal_serial());
+      } else {
+        if (_this->_impl_.serial_.IsDefault()) {
+          _this->_internal_set_serial("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+      if (!from._internal_ip_address().empty()) {
+        _this->_internal_set_ip_address(from._internal_ip_address());
+      } else {
+        if (_this->_impl_.ip_address_.IsDefault()) {
+          _this->_internal_set_ip_address("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+      if (from._internal_camera_id() != 0) {
+        _this->_impl_.camera_id_ = from._impl_.camera_id_;
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000010U)) {
+      if (from._internal_width() != 0) {
+        _this->_impl_.width_ = from._impl_.width_;
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000020U)) {
+      if (from._internal_height() != 0) {
+        _this->_impl_.height_ = from._impl_.height_;
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000040U)) {
+      if (from._internal_offset_x() != 0) {
+        _this->_impl_.offset_x_ = from._impl_.offset_x_;
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
+      if (from._internal_offset_y() != 0) {
+        _this->_impl_.offset_y_ = from._impl_.offset_y_;
+      }
+    }
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x00003f00U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+      if (from._internal_binning_h() != 0) {
+        _this->_impl_.binning_h_ = from._impl_.binning_h_;
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+      if (from._internal_binning_v() != 0) {
+        _this->_impl_.binning_v_ = from._impl_.binning_v_;
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000400U)) {
+      if (::absl::bit_cast<::uint32_t>(from._internal_exposure_us()) != 0) {
+        _this->_impl_.exposure_us_ = from._impl_.exposure_us_;
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000800U)) {
+      if (::absl::bit_cast<::uint32_t>(from._internal_gain_db()) != 0) {
+        _this->_impl_.gain_db_ = from._impl_.gain_db_;
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00001000U)) {
+      if (::absl::bit_cast<::uint32_t>(from._internal_fps()) != 0) {
+        _this->_impl_.fps_ = from._impl_.fps_;
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00002000U)) {
+      if (from._internal_acquiring() != 0) {
+        _this->_impl_.acquiring_ = from._impl_.acquiring_;
+      }
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+}
+
+void CameraState::CopyFrom(const CameraState& from) {
+  // @@protoc_insertion_point(class_specific_copy_from_start:camaramodule.CameraState)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+
+void CameraState::InternalSwap(CameraState* PROTOBUF_RESTRICT PROTOBUF_NONNULL other) {
+  using ::std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.model_name_, &other->_impl_.model_name_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.serial_, &other->_impl_.serial_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.ip_address_, &other->_impl_.ip_address_, arena);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(CameraState, _impl_.acquiring_)
+      + sizeof(CameraState::_impl_.acquiring_)
+      - PROTOBUF_FIELD_OFFSET(CameraState, _impl_.camera_id_)>(
+          reinterpret_cast<char*>(&_impl_.camera_id_),
+          reinterpret_cast<char*>(&other->_impl_.camera_id_));
+}
+
+::google::protobuf::Metadata CameraState::GetMetadata() const {
+  return ::google::protobuf::Message::GetMetadataImpl(GetClassData()->full());
+}
+// ===================================================================
+
 class ParameterRequest::_Internal {
  public:
   using HasBits =
@@ -838,11 +1933,11 @@ ParameterRequest::ParameterRequest(
       from._internal_metadata_);
   new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
   ::memcpy(reinterpret_cast<char*>(&_impl_) +
-               offsetof(Impl_, float_value_),
+               offsetof(Impl_, camera_id_),
            reinterpret_cast<const char*>(&from._impl_) +
-               offsetof(Impl_, float_value_),
+               offsetof(Impl_, camera_id_),
            offsetof(Impl_, int_value_) -
-               offsetof(Impl_, float_value_) +
+               offsetof(Impl_, camera_id_) +
                sizeof(Impl_::int_value_));
 
   // @@protoc_insertion_point(copy_constructor:camaramodule.ParameterRequest)
@@ -856,10 +1951,10 @@ PROTOBUF_NDEBUG_INLINE ParameterRequest::Impl_::Impl_(
 inline void ParameterRequest::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
   ::memset(reinterpret_cast<char*>(&_impl_) +
-               offsetof(Impl_, float_value_),
+               offsetof(Impl_, camera_id_),
            0,
            offsetof(Impl_, int_value_) -
-               offsetof(Impl_, float_value_) +
+               offsetof(Impl_, camera_id_) +
                sizeof(Impl_::int_value_));
 }
 ParameterRequest::~ParameterRequest() {
@@ -920,16 +2015,16 @@ ParameterRequest::GetClassData() const {
   return ParameterRequest_class_data_.base();
 }
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<2, 3, 0, 48, 2>
+const ::_pbi::TcParseTable<2, 4, 0, 48, 2>
 ParameterRequest::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(ParameterRequest, _impl_._has_bits_),
     0, // no _extensions_
-    3, 24,  // max_field_number, fast_idx_mask
+    4, 24,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967288,  // skipmap
+    4294967280,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    3,  // num_field_entries
+    4,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
     ParameterRequest_class_data_.base(),
@@ -939,32 +2034,37 @@ ParameterRequest::_table_ = {
     ::_pbi::TcParser::GetTable<::camaramodule::ParameterRequest>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    {::_pbi::TcParser::MiniParse, {}},
-    // string param_name = 1;
-    {::_pbi::TcParser::FastUS1,
-     {10, 0, 0,
-      PROTOBUF_FIELD_OFFSET(ParameterRequest, _impl_.param_name_)}},
-    // float float_value = 2;
-    {::_pbi::TcParser::FastF32S1,
-     {21, 1, 0,
-      PROTOBUF_FIELD_OFFSET(ParameterRequest, _impl_.float_value_)}},
-    // int32 int_value = 3;
-    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(ParameterRequest, _impl_.int_value_), 2>(),
-     {24, 2, 0,
+    // int32 int_value = 4;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(ParameterRequest, _impl_.int_value_), 3>(),
+     {32, 3, 0,
       PROTOBUF_FIELD_OFFSET(ParameterRequest, _impl_.int_value_)}},
+    // int32 camera_id = 1;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(ParameterRequest, _impl_.camera_id_), 1>(),
+     {8, 1, 0,
+      PROTOBUF_FIELD_OFFSET(ParameterRequest, _impl_.camera_id_)}},
+    // string param_name = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 0, 0,
+      PROTOBUF_FIELD_OFFSET(ParameterRequest, _impl_.param_name_)}},
+    // float float_value = 3;
+    {::_pbi::TcParser::FastF32S1,
+     {29, 2, 0,
+      PROTOBUF_FIELD_OFFSET(ParameterRequest, _impl_.float_value_)}},
   }}, {{
     65535, 65535
   }}, {{
-    // string param_name = 1;
+    // int32 camera_id = 1;
+    {PROTOBUF_FIELD_OFFSET(ParameterRequest, _impl_.camera_id_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt32)},
+    // string param_name = 2;
     {PROTOBUF_FIELD_OFFSET(ParameterRequest, _impl_.param_name_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // float float_value = 2;
-    {PROTOBUF_FIELD_OFFSET(ParameterRequest, _impl_.float_value_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kFloat)},
-    // int32 int_value = 3;
-    {PROTOBUF_FIELD_OFFSET(ParameterRequest, _impl_.int_value_), _Internal::kHasBitsOffset + 2, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt32)},
+    // float float_value = 3;
+    {PROTOBUF_FIELD_OFFSET(ParameterRequest, _impl_.float_value_), _Internal::kHasBitsOffset + 2, 0, (0 | ::_fl::kFcOptional | ::_fl::kFloat)},
+    // int32 int_value = 4;
+    {PROTOBUF_FIELD_OFFSET(ParameterRequest, _impl_.int_value_), _Internal::kHasBitsOffset + 3, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt32)},
   }},
   // no aux_entries
   {{
-    "\35\12\0\0\0\0\0\0"
+    "\35\0\12\0\0\0\0\0"
     "camaramodule.ParameterRequest"
     "param_name"
   }},
@@ -980,10 +2080,10 @@ PROTOBUF_NOINLINE void ParameterRequest::Clear() {
   if (CheckHasBit(cached_has_bits, 0x00000001U)) {
     _impl_.param_name_.ClearNonDefaultToEmpty();
   }
-  if (BatchCheckHasBit(cached_has_bits, 0x00000006U)) {
-    ::memset(&_impl_.float_value_, 0, static_cast<::size_t>(
+  if (BatchCheckHasBit(cached_has_bits, 0x0000000eU)) {
+    ::memset(&_impl_.camera_id_, 0, static_cast<::size_t>(
         reinterpret_cast<char*>(&_impl_.int_value_) -
-        reinterpret_cast<char*>(&_impl_.float_value_)) + sizeof(_impl_.int_value_));
+        reinterpret_cast<char*>(&_impl_.camera_id_)) + sizeof(_impl_.int_value_));
   }
   _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
@@ -1008,30 +2108,39 @@ PROTOBUF_NOINLINE void ParameterRequest::Clear() {
   (void)cached_has_bits;
 
   cached_has_bits = this_._impl_._has_bits_[0];
-  // string param_name = 1;
+  // int32 camera_id = 1;
+  if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+    if (this_._internal_camera_id() != 0) {
+      target =
+          ::google::protobuf::internal::WireFormatLite::WriteInt32ToArrayWithField<1>(
+              stream, this_._internal_camera_id(), target);
+    }
+  }
+
+  // string param_name = 2;
   if (CheckHasBit(cached_has_bits, 0x00000001U)) {
     if (!this_._internal_param_name().empty()) {
       const ::std::string& _s = this_._internal_param_name();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
           _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "camaramodule.ParameterRequest.param_name");
-      target = stream->WriteStringMaybeAliased(1, _s, target);
+      target = stream->WriteStringMaybeAliased(2, _s, target);
     }
   }
 
-  // float float_value = 2;
-  if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+  // float float_value = 3;
+  if (CheckHasBit(cached_has_bits, 0x00000004U)) {
     if (::absl::bit_cast<::uint32_t>(this_._internal_float_value()) != 0) {
       target = stream->EnsureSpace(target);
       target = ::_pbi::WireFormatLite::WriteFloatToArray(
-          2, this_._internal_float_value(), target);
+          3, this_._internal_float_value(), target);
     }
   }
 
-  // int32 int_value = 3;
-  if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+  // int32 int_value = 4;
+  if (CheckHasBit(cached_has_bits, 0x00000008U)) {
     if (this_._internal_int_value() != 0) {
       target =
-          ::google::protobuf::internal::WireFormatLite::WriteInt32ToArrayWithField<3>(
+          ::google::protobuf::internal::WireFormatLite::WriteInt32ToArrayWithField<4>(
               stream, this_._internal_int_value(), target);
     }
   }
@@ -1061,22 +2170,29 @@ PROTOBUF_NOINLINE void ParameterRequest::Clear() {
 
   ::_pbi::Prefetch5LinesFrom7Lines(&this_);
   cached_has_bits = this_._impl_._has_bits_[0];
-  if (BatchCheckHasBit(cached_has_bits, 0x00000007U)) {
-    // string param_name = 1;
+  if (BatchCheckHasBit(cached_has_bits, 0x0000000fU)) {
+    // string param_name = 2;
     if (CheckHasBit(cached_has_bits, 0x00000001U)) {
       if (!this_._internal_param_name().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_param_name());
       }
     }
-    // float float_value = 2;
+    // int32 camera_id = 1;
     if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (this_._internal_camera_id() != 0) {
+        total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+            this_._internal_camera_id());
+      }
+    }
+    // float float_value = 3;
+    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
       if (::absl::bit_cast<::uint32_t>(this_._internal_float_value()) != 0) {
         total_size += 5;
       }
     }
-    // int32 int_value = 3;
-    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+    // int32 int_value = 4;
+    if (CheckHasBit(cached_has_bits, 0x00000008U)) {
       if (this_._internal_int_value() != 0) {
         total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
             this_._internal_int_value());
@@ -1101,7 +2217,7 @@ void ParameterRequest::MergeImpl(::google::protobuf::MessageLite& to_msg,
   (void)cached_has_bits;
 
   cached_has_bits = from._impl_._has_bits_[0];
-  if (BatchCheckHasBit(cached_has_bits, 0x00000007U)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x0000000fU)) {
     if (CheckHasBit(cached_has_bits, 0x00000001U)) {
       if (!from._internal_param_name().empty()) {
         _this->_internal_set_param_name(from._internal_param_name());
@@ -1112,11 +2228,16 @@ void ParameterRequest::MergeImpl(::google::protobuf::MessageLite& to_msg,
       }
     }
     if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (from._internal_camera_id() != 0) {
+        _this->_impl_.camera_id_ = from._impl_.camera_id_;
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
       if (::absl::bit_cast<::uint32_t>(from._internal_float_value()) != 0) {
         _this->_impl_.float_value_ = from._impl_.float_value_;
       }
     }
-    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000008U)) {
       if (from._internal_int_value() != 0) {
         _this->_impl_.int_value_ = from._impl_.int_value_;
       }
@@ -1145,12 +2266,287 @@ void ParameterRequest::InternalSwap(ParameterRequest* PROTOBUF_RESTRICT PROTOBUF
   ::google::protobuf::internal::memswap<
       PROTOBUF_FIELD_OFFSET(ParameterRequest, _impl_.int_value_)
       + sizeof(ParameterRequest::_impl_.int_value_)
-      - PROTOBUF_FIELD_OFFSET(ParameterRequest, _impl_.float_value_)>(
-          reinterpret_cast<char*>(&_impl_.float_value_),
-          reinterpret_cast<char*>(&other->_impl_.float_value_));
+      - PROTOBUF_FIELD_OFFSET(ParameterRequest, _impl_.camera_id_)>(
+          reinterpret_cast<char*>(&_impl_.camera_id_),
+          reinterpret_cast<char*>(&other->_impl_.camera_id_));
 }
 
 ::google::protobuf::Metadata ParameterRequest::GetMetadata() const {
+  return ::google::protobuf::Message::GetMetadataImpl(GetClassData()->full());
+}
+// ===================================================================
+
+class SaveDirectoryRequest::_Internal {
+ public:
+  using HasBits =
+      decltype(::std::declval<SaveDirectoryRequest>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+      8 * PROTOBUF_FIELD_OFFSET(SaveDirectoryRequest, _impl_._has_bits_);
+};
+
+SaveDirectoryRequest::SaveDirectoryRequest(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, SaveDirectoryRequest_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:camaramodule.SaveDirectoryRequest)
+}
+PROTOBUF_NDEBUG_INLINE SaveDirectoryRequest::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+    [[maybe_unused]] const ::camaramodule::SaveDirectoryRequest& from_msg)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        path_(arena, from.path_) {}
+
+SaveDirectoryRequest::SaveDirectoryRequest(
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena,
+    const SaveDirectoryRequest& from)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, SaveDirectoryRequest_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  SaveDirectoryRequest* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
+
+  // @@protoc_insertion_point(copy_constructor:camaramodule.SaveDirectoryRequest)
+}
+PROTOBUF_NDEBUG_INLINE SaveDirectoryRequest::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+      : _cached_size_{0},
+        path_(arena) {}
+
+inline void SaveDirectoryRequest::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+}
+SaveDirectoryRequest::~SaveDirectoryRequest() {
+  // @@protoc_insertion_point(destructor:camaramodule.SaveDirectoryRequest)
+  SharedDtor(*this);
+}
+inline void SaveDirectoryRequest::SharedDtor(MessageLite& self) {
+  SaveDirectoryRequest& this_ = static_cast<SaveDirectoryRequest&>(self);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  this_._internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  ABSL_DCHECK(this_.GetArena() == nullptr);
+  this_._impl_.path_.Destroy();
+  this_._impl_.~Impl_();
+}
+
+inline void* PROTOBUF_NONNULL SaveDirectoryRequest::PlacementNew_(
+    const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
+  return ::new (mem) SaveDirectoryRequest(arena);
+}
+constexpr auto SaveDirectoryRequest::InternalNewImpl_() {
+  return ::google::protobuf::internal::MessageCreator::CopyInit(sizeof(SaveDirectoryRequest),
+                                            alignof(SaveDirectoryRequest));
+}
+constexpr auto SaveDirectoryRequest::InternalGenerateClassData_() {
+  return ::google::protobuf::internal::ClassDataFull{
+      ::google::protobuf::internal::ClassData{
+          &_SaveDirectoryRequest_default_instance_._instance,
+          &_table_.header,
+          nullptr,  // OnDemandRegisterArenaDtor
+          nullptr,  // IsInitialized
+          &SaveDirectoryRequest::MergeImpl,
+          ::google::protobuf::Message::GetNewImpl<SaveDirectoryRequest>(),
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+          &SaveDirectoryRequest::SharedDtor,
+          ::google::protobuf::Message::GetClearImpl<SaveDirectoryRequest>(), &SaveDirectoryRequest::ByteSizeLong,
+              &SaveDirectoryRequest::_InternalSerialize,
+#endif  // PROTOBUF_CUSTOM_VTABLE
+          PROTOBUF_FIELD_OFFSET(SaveDirectoryRequest, _impl_._cached_size_),
+          false,
+      },
+      &SaveDirectoryRequest::kDescriptorMethods,
+      &descriptor_table_camera_5fservice_2eproto,
+      nullptr,  // tracker
+  };
+}
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const
+    ::google::protobuf::internal::ClassDataFull SaveDirectoryRequest_class_data_ =
+        SaveDirectoryRequest::InternalGenerateClassData_();
+
+PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+SaveDirectoryRequest::GetClassData() const {
+  ::google::protobuf::internal::PrefetchToLocalCache(&SaveDirectoryRequest_class_data_);
+  ::google::protobuf::internal::PrefetchToLocalCache(SaveDirectoryRequest_class_data_.tc_table);
+  return SaveDirectoryRequest_class_data_.base();
+}
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<0, 1, 0, 46, 2>
+SaveDirectoryRequest::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(SaveDirectoryRequest, _impl_._has_bits_),
+    0, // no _extensions_
+    1, 0,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967294,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    1,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    SaveDirectoryRequest_class_data_.base(),
+    nullptr,  // post_loop_handler
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::camaramodule::SaveDirectoryRequest>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // string path = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 0, 0,
+      PROTOBUF_FIELD_OFFSET(SaveDirectoryRequest, _impl_.path_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string path = 1;
+    {PROTOBUF_FIELD_OFFSET(SaveDirectoryRequest, _impl_.path_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+  }},
+  // no aux_entries
+  {{
+    "\41\4\0\0\0\0\0\0"
+    "camaramodule.SaveDirectoryRequest"
+    "path"
+  }},
+};
+PROTOBUF_NOINLINE void SaveDirectoryRequest::Clear() {
+// @@protoc_insertion_point(message_clear_start:camaramodule.SaveDirectoryRequest)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  cached_has_bits = _impl_._has_bits_[0];
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+    _impl_.path_.ClearNonDefaultToEmpty();
+  }
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::uint8_t* PROTOBUF_NONNULL SaveDirectoryRequest::_InternalSerialize(
+    const ::google::protobuf::MessageLite& base, ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) {
+  const SaveDirectoryRequest& this_ = static_cast<const SaveDirectoryRequest&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::uint8_t* PROTOBUF_NONNULL SaveDirectoryRequest::_InternalSerialize(
+    ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+  const SaveDirectoryRequest& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(serialize_to_array_start:camaramodule.SaveDirectoryRequest)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = this_._impl_._has_bits_[0];
+  // string path = 1;
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+    if (!this_._internal_path().empty()) {
+      const ::std::string& _s = this_._internal_path();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "camaramodule.SaveDirectoryRequest.path");
+      target = stream->WriteStringMaybeAliased(1, _s, target);
+    }
+  }
+
+  if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            this_._internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:camaramodule.SaveDirectoryRequest)
+  return target;
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::size_t SaveDirectoryRequest::ByteSizeLong(const MessageLite& base) {
+  const SaveDirectoryRequest& this_ = static_cast<const SaveDirectoryRequest&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::size_t SaveDirectoryRequest::ByteSizeLong() const {
+  const SaveDirectoryRequest& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  // @@protoc_insertion_point(message_byte_size_start:camaramodule.SaveDirectoryRequest)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void)cached_has_bits;
+
+   {
+    // string path = 1;
+    cached_has_bits = this_._impl_._has_bits_[0];
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (!this_._internal_path().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_path());
+      }
+    }
+  }
+  return this_.MaybeComputeUnknownFieldsSize(total_size,
+                                             &this_._impl_._cached_size_);
+}
+
+void SaveDirectoryRequest::MergeImpl(::google::protobuf::MessageLite& to_msg,
+                            const ::google::protobuf::MessageLite& from_msg) {
+   auto* const _this =
+      static_cast<SaveDirectoryRequest*>(&to_msg);
+  auto& from = static_cast<const SaveDirectoryRequest&>(from_msg);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    from.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(class_specific_merge_from_start:camaramodule.SaveDirectoryRequest)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+    if (!from._internal_path().empty()) {
+      _this->_internal_set_path(from._internal_path());
+    } else {
+      if (_this->_impl_.path_.IsDefault()) {
+        _this->_internal_set_path("");
+      }
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+}
+
+void SaveDirectoryRequest::CopyFrom(const SaveDirectoryRequest& from) {
+  // @@protoc_insertion_point(class_specific_copy_from_start:camaramodule.SaveDirectoryRequest)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+
+void SaveDirectoryRequest::InternalSwap(SaveDirectoryRequest* PROTOBUF_RESTRICT PROTOBUF_NONNULL other) {
+  using ::std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.path_, &other->_impl_.path_, arena);
+}
+
+::google::protobuf::Metadata SaveDirectoryRequest::GetMetadata() const {
   return ::google::protobuf::Message::GetMetadataImpl(GetClassData()->full());
 }
 // ===================================================================

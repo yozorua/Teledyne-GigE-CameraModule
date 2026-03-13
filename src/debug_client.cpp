@@ -83,10 +83,9 @@ static void InspectBuffer(int32_t idx) {
         return;
     }
 
-    // Basic statistics
-    uint64_t sum   = 0;
-    uint8_t  vmin  = 255;
-    uint8_t  vmax  = 0;
+    uint64_t sum  = 0;
+    uint8_t  vmin = 255;
+    uint8_t  vmax = 0;
     for (std::size_t i = 0; i < n; ++i) {
         sum  += buf[i];
         vmin = std::min(vmin, buf[i]);
@@ -94,7 +93,6 @@ static void InspectBuffer(int32_t idx) {
     }
     const double mean = static_cast<double>(sum) / static_cast<double>(n);
 
-    // Sample a 5×5 grid of pixels for a quick visual thumbnail
     const int32_t w = hdr->image_width;
     const int32_t h = hdr->image_height;
 
@@ -159,56 +157,134 @@ public:
         std::cout << "[DebugClient] Targeting " << address << '\n';
     }
 
-    // ── RPCs ──────────────────────────────────────────────────────────────────
+    // ── Module-level ──────────────────────────────────────────────────────────
+
+    void Health() {
+        camaramodule::Empty       req;
+        camaramodule::SystemState resp;
+        grpc::ClientContext       ctx;
+        // Short deadline so we fail fast on an unreachable module.
+        ctx.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(3));
+        auto st = stub_->GetSystemState(&ctx, req, &resp);
+        if (st.ok()) {
+            std::cout << "  UP  —  status=" << resp.status()
+                      << "  cameras=" << resp.connected_cameras()
+                      << "  fps=" << std::fixed << std::setprecision(1)
+                      << resp.current_fps() << '\n';
+        } else {
+            std::cout << "  DOWN (code=" << static_cast<int>(st.error_code())
+                      << "): " << st.error_message() << '\n';
+        }
+    }
 
     void GetSystemState() {
-        camaramodule::Empty      req;
+        camaramodule::Empty       req;
         camaramodule::SystemState resp;
         grpc::ClientContext       ctx;
         auto st = stub_->GetSystemState(&ctx, req, &resp);
         if (!st.ok()) { PrintRpcError(st); return; }
         std::cout << "  status   : " << resp.status()            << '\n'
                   << "  cameras  : " << resp.connected_cameras() << '\n'
-                  << "  fps      : " << resp.current_fps()       << '\n';
+                  << "  fps      : " << std::fixed << std::setprecision(1)
+                                     << resp.current_fps()       << '\n';
     }
 
-    void StartAcquisition() {
-        SimpleCommand([this](auto& ctx, auto& req, auto& resp) {
-            return stub_->StartAcquisition(&ctx, req, &resp);
-        });
+    void StartAcquisition(int32_t camera_id = -1) {
+        camaramodule::CameraRequest  req;
+        camaramodule::CommandStatus  resp;
+        grpc::ClientContext          ctx;
+        req.set_camera_id(camera_id);
+        auto st = stub_->StartAcquisition(&ctx, req, &resp);
+        if (!st.ok()) { PrintRpcError(st); return; }
+        PrintStatus(resp);
     }
 
-    void StopAcquisition() {
-        SimpleCommand([this](auto& ctx, auto& req, auto& resp) {
-            return stub_->StopAcquisition(&ctx, req, &resp);
-        });
+    void StopAcquisition(int32_t camera_id = -1) {
+        camaramodule::CameraRequest  req;
+        camaramodule::CommandStatus  resp;
+        grpc::ClientContext          ctx;
+        req.set_camera_id(camera_id);
+        auto st = stub_->StopAcquisition(&ctx, req, &resp);
+        if (!st.ok()) { PrintRpcError(st); return; }
+        PrintStatus(resp);
     }
 
-    void SetParameter(const std::string& name, float fval, int32_t ival) {
+    void Restart(int32_t camera_id = -1) {
+        std::cout << "  [restart] Stopping...\n";
+        StopAcquisition(camera_id);
+        std::cout << "  [restart] Starting...\n";
+        StartAcquisition(camera_id);
+    }
+
+    /// camera_id = -1 means all cameras.
+    void SetParameter(const std::string& name, float fval, int32_t ival,
+                      int32_t camera_id = -1) {
         camaramodule::ParameterRequest req;
+        camaramodule::CommandStatus    resp;
+        grpc::ClientContext            ctx;
+        req.set_camera_id(camera_id);
         req.set_param_name(name);
         req.set_float_value(fval);
         req.set_int_value(ival);
-        camaramodule::CommandStatus resp;
-        grpc::ClientContext         ctx;
         auto st = stub_->SetParameter(&ctx, req, &resp);
         if (!st.ok()) { PrintRpcError(st); return; }
         PrintStatus(resp);
     }
 
     void TriggerDiskSave() {
-        SimpleCommand([this](auto& ctx, auto& req, auto& resp) {
-            return stub_->TriggerDiskSave(&ctx, req, &resp);
-        });
+        camaramodule::Empty         req;
+        camaramodule::CommandStatus resp;
+        grpc::ClientContext         ctx;
+        auto st = stub_->TriggerDiskSave(&ctx, req, &resp);
+        if (!st.ok()) { PrintRpcError(st); return; }
+        PrintStatus(resp);
     }
 
-    /// Grabs the latest frame from @p camera_id (use -1 for any camera),
-    /// prints metadata, inspects the SHM buffer, then releases.
+    void SetSaveDirectory(const std::string& path) {
+        camaramodule::SaveDirectoryRequest req;
+        camaramodule::CommandStatus        resp;
+        grpc::ClientContext                ctx;
+        req.set_path(path);
+        auto st = stub_->SetSaveDirectory(&ctx, req, &resp);
+        if (!st.ok()) { PrintRpcError(st); return; }
+        PrintStatus(resp);
+    }
+
+    void GetCameraInfo(int32_t camera_id) {
+        camaramodule::CameraRequest req;
+        camaramodule::CameraState   resp;
+        grpc::ClientContext         ctx;
+        req.set_camera_id(camera_id);
+        auto st = stub_->GetCameraInfo(&ctx, req, &resp);
+        if (!st.ok()) { PrintRpcError(st); return; }
+        PrintCameraState(resp);
+    }
+
+    /// Queries all cameras and prints a summary table.
+    void ListCameras() {
+        camaramodule::Empty       sreq;
+        camaramodule::SystemState sres;
+        grpc::ClientContext       sctx;
+        auto st = stub_->GetSystemState(&sctx, sreq, &sres);
+        if (!st.ok()) { PrintRpcError(st); return; }
+
+        const int32_t count = sres.connected_cameras();
+        if (count == 0) {
+            std::cout << "  No cameras connected.\n";
+            return;
+        }
+
+        for (int32_t i = 0; i < count; ++i) {
+            std::cout << "  ─── Camera " << i << " ───────────────────────────────\n";
+            GetCameraInfo(i);
+        }
+    }
+
     void GrabFrame(int32_t camera_id, bool keep = false) {
         camaramodule::FrameRequest req;
+        camaramodule::FrameInfo    resp;
+        grpc::ClientContext        ctx;
         req.set_camera_id(camera_id);
-        camaramodule::FrameInfo resp;
-        grpc::ClientContext     ctx;
         auto st = stub_->GetLatestImageFrame(&ctx, req, &resp);
         if (!st.ok()) { PrintRpcError(st); return; }
 
@@ -229,26 +305,15 @@ public:
 
     void ReleaseFrame(int32_t index) {
         camaramodule::ReleaseRequest req;
+        camaramodule::CommandStatus  resp;
+        grpc::ClientContext          ctx;
         req.set_shared_memory_index(index);
-        camaramodule::CommandStatus resp;
-        grpc::ClientContext         ctx;
         auto st = stub_->ReleaseImageFrame(&ctx, req, &resp);
         if (!st.ok()) { PrintRpcError(st); return; }
         PrintStatus(resp);
     }
 
 private:
-    // Helper: call any RPC that takes Empty and returns CommandStatus.
-    template<typename Fn>
-    void SimpleCommand(Fn fn) {
-        camaramodule::Empty         req;
-        camaramodule::CommandStatus resp;
-        grpc::ClientContext         ctx;
-        auto st = fn(ctx, req, resp);
-        if (!st.ok()) { PrintRpcError(st); return; }
-        PrintStatus(resp);
-    }
-
     static void PrintStatus(const camaramodule::CommandStatus& s) {
         std::cout << "  " << (s.success() ? "OK" : "FAIL")
                   << " — " << s.message() << '\n';
@@ -257,6 +322,20 @@ private:
     static void PrintRpcError(const grpc::Status& s) {
         std::cerr << "  [gRPC error " << static_cast<int>(s.error_code())
                   << "] " << s.error_message() << '\n';
+    }
+
+    static void PrintCameraState(const camaramodule::CameraState& s) {
+        std::cout << std::fixed << std::setprecision(1);
+        std::cout << "  model      : " << (s.model_name().empty() ? "(unknown)" : s.model_name()) << '\n'
+                  << "  serial     : " << (s.serial().empty()     ? "(unknown)" : s.serial())     << '\n'
+                  << "  ip         : " << (s.ip_address().empty() ? "n/a"       : s.ip_address()) << '\n'
+                  << "  acquiring  : " << (s.acquiring() ? "yes" : "no")                          << '\n'
+                  << "  fps        : " << s.fps()                                                  << '\n'
+                  << "  resolution : " << s.width() << "×" << s.height()                          << '\n'
+                  << "  ROI offset : " << s.offset_x() << ", " << s.offset_y()                    << '\n'
+                  << "  binning    : " << s.binning_h() << "×" << s.binning_v()                   << '\n'
+                  << "  exposure   : " << s.exposure_us() << " µs\n"
+                  << "  gain       : " << s.gain_db()     << " dB\n";
     }
 
     std::unique_ptr<camaramodule::CameraControl::Stub> stub_;
@@ -268,26 +347,37 @@ private:
 
 static void PrintHelp() {
     std::cout << R"(
-Commands:
-  state                         GetSystemState
-  start                         StartAcquisition
-  stop                          StopAcquisition
-  set <node> <float> <int>      SetParameter
+Module commands:
+  health                        Ping the module (UP/DOWN + current status)
+  state                         Detailed system state (camera count, FPS)
+  start  [cam_id]               Start acquisition  (-1 or omit = all cameras)
+  stop   [cam_id]               Stop acquisition   (-1 or omit = all cameras)
+  restart [cam_id]              Stop then start    (-1 or omit = all cameras)
+
+Camera info:
+  cameras                       List all cameras with full state
+  info <cam_id>                 Show state for one camera (model, IP, ROI, …)
+
+Parameter control:
+  set <name> <float> <int>      Set GenICam node on ALL cameras
+  set <cam_id> <name> <f> <i>  Set GenICam node on one camera
                                   e.g.  set ExposureTime 5000.0 0
-                                        set Gain 10.0 0
-                                        set Width 0 1920
-  save                          TriggerDiskSave (flags next frame for disk write)
+                                        set 0 Gain 10.0 0
+                                        set -1 Width 0 1920
 
-  grab [camera_id] [keep]       GetLatestImageFrame + SHM inspect + auto-release
-                                  camera_id : 0, 1, … or -1 for any  (default -1)
-                                  keep      : pass 'keep' to skip auto-release
-                                  e.g.  grab        — any camera, auto-release
-                                        grab 0      — camera 0, auto-release
-                                        grab 1 keep — camera 1, hold buffer
-  release <index>               ReleaseImageFrame (use after 'grab … keep')
+Disk save:
+  save                          Flag next frame for disk write
+  savedir <path>                Change save directory at runtime
 
-  shm                           Print shared memory pool state directly
-  inspect <index>               Print pixel stats for a buffer without going via gRPC
+Frame inspection:
+  grab [cam_id] [keep]          Grab frame + SHM inspect + auto-release
+                                  cam_id : 0, 1, … or -1 for any  (default -1)
+                                  keep   : skip auto-release
+  release <index>               Release a held frame buffer
+
+SHM diagnostics:
+  shm                           Dump full SHM pool state
+  inspect <index>               Pixel stats on a buffer (no gRPC needed)
 
   help                          Show this help
   quit / exit                   Exit
@@ -312,21 +402,73 @@ int main(int argc, char* argv[]) {
         if (cmd.empty())                    continue;
         if (cmd == "quit" || cmd == "exit") break;
         if (cmd == "help")                  { PrintHelp();                continue; }
+        if (cmd == "health")                { client.Health();            continue; }
         if (cmd == "state")                 { client.GetSystemState();    continue; }
-        if (cmd == "start")                 { client.StartAcquisition();  continue; }
-        if (cmd == "stop")                  { client.StopAcquisition();   continue; }
         if (cmd == "save")                  { client.TriggerDiskSave();   continue; }
         if (cmd == "shm")                   { PrintShmState();            continue; }
+        if (cmd == "cameras")               { client.ListCameras();       continue; }
 
-        if (cmd == "set") {
-            std::string name;
-            float       fval = 0.0f;
-            int32_t     ival = 0;
-            if (!(ss >> name >> fval >> ival)) {
-                std::cerr << "  Usage: set <node_name> <float_value> <int_value>\n";
+        if (cmd == "start" || cmd == "stop" || cmd == "restart") {
+            int32_t cam_id = -1;
+            ss >> cam_id;  // optional; stays -1 if not provided
+            if      (cmd == "start")   client.StartAcquisition(cam_id);
+            else if (cmd == "stop")    client.StopAcquisition(cam_id);
+            else                       client.Restart(cam_id);
+            continue;
+        }
+
+        if (cmd == "info") {
+            int32_t cam_id = -1;
+            if (!(ss >> cam_id)) {
+                std::cerr << "  Usage: info <cam_id>\n";
                 continue;
             }
-            client.SetParameter(name, fval, ival);
+            client.GetCameraInfo(cam_id);
+            continue;
+        }
+
+        if (cmd == "savedir") {
+            std::string path;
+            if (!(ss >> path)) {
+                std::cerr << "  Usage: savedir <path>\n";
+                continue;
+            }
+            client.SetSaveDirectory(path);
+            continue;
+        }
+
+        if (cmd == "set") {
+            // Syntax:
+            //   set <name> <float> <int>           — all cameras
+            //   set <cam_id> <name> <float> <int>  — one camera (cam_id is integer)
+            std::string token;
+            if (!(ss >> token)) {
+                std::cerr << "  Usage: set [cam_id] <node_name> <float_value> <int_value>\n";
+                continue;
+            }
+
+            int32_t     camera_id = -1;
+            std::string name;
+
+            // If the first token parses as an integer it is the camera_id.
+            try {
+                camera_id = std::stoi(token);
+                if (!(ss >> name)) {
+                    std::cerr << "  Usage: set [cam_id] <node_name> <float_value> <int_value>\n";
+                    continue;
+                }
+            } catch (...) {
+                // First token was a node name — apply to all cameras.
+                name = token;
+            }
+
+            float   fval = 0.0f;
+            int32_t ival = 0;
+            if (!(ss >> fval >> ival)) {
+                std::cerr << "  Usage: set [cam_id] <node_name> <float_value> <int_value>\n";
+                continue;
+            }
+            client.SetParameter(name, fval, ival, camera_id);
             continue;
         }
 

@@ -36,7 +36,7 @@ class CameraControl final {
   class StubInterface {
    public:
     virtual ~StubInterface() {}
-    // Output State
+    // ── Module health & state ─────────────────────────────────────────────────
     virtual ::grpc::Status GetSystemState(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::camaramodule::SystemState* response) = 0;
     std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::SystemState>> AsyncGetSystemState(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::SystemState>>(AsyncGetSystemStateRaw(context, request, cq));
@@ -44,21 +44,22 @@ class CameraControl final {
     std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::SystemState>> PrepareAsyncGetSystemState(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::SystemState>>(PrepareAsyncGetSystemStateRaw(context, request, cq));
     }
-    // Control API & Parameters
-    virtual ::grpc::Status StartAcquisition(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::camaramodule::CommandStatus* response) = 0;
-    std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>> AsyncStartAcquisition(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) {
+    // ── Acquisition control  (camera_id = -1 = all cameras) ──────────────────
+    virtual ::grpc::Status StartAcquisition(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::camaramodule::CommandStatus* response) = 0;
+    std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>> AsyncStartAcquisition(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>>(AsyncStartAcquisitionRaw(context, request, cq));
     }
-    std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>> PrepareAsyncStartAcquisition(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) {
+    std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>> PrepareAsyncStartAcquisition(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>>(PrepareAsyncStartAcquisitionRaw(context, request, cq));
     }
-    virtual ::grpc::Status StopAcquisition(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::camaramodule::CommandStatus* response) = 0;
-    std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>> AsyncStopAcquisition(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) {
+    virtual ::grpc::Status StopAcquisition(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::camaramodule::CommandStatus* response) = 0;
+    std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>> AsyncStopAcquisition(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>>(AsyncStopAcquisitionRaw(context, request, cq));
     }
-    std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>> PrepareAsyncStopAcquisition(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) {
+    std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>> PrepareAsyncStopAcquisition(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>>(PrepareAsyncStopAcquisitionRaw(context, request, cq));
     }
+    // ── Parameter control  (camera_id = -1 = all cameras) ────────────────────
     virtual ::grpc::Status SetParameter(::grpc::ClientContext* context, const ::camaramodule::ParameterRequest& request, ::camaramodule::CommandStatus* response) = 0;
     std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>> AsyncSetParameter(::grpc::ClientContext* context, const ::camaramodule::ParameterRequest& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>>(AsyncSetParameterRaw(context, request, cq));
@@ -66,7 +67,7 @@ class CameraControl final {
     std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>> PrepareAsyncSetParameter(::grpc::ClientContext* context, const ::camaramodule::ParameterRequest& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>>(PrepareAsyncSetParameterRaw(context, request, cq));
     }
-    // Save Photo Trigger
+    // ── Disk save ─────────────────────────────────────────────────────────────
     virtual ::grpc::Status TriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::camaramodule::CommandStatus* response) = 0;
     std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>> AsyncTriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>>(AsyncTriggerDiskSaveRaw(context, request, cq));
@@ -74,7 +75,22 @@ class CameraControl final {
     std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>> PrepareAsyncTriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>>(PrepareAsyncTriggerDiskSaveRaw(context, request, cq));
     }
-    // Inter-process Buffer Management
+    virtual ::grpc::Status SetSaveDirectory(::grpc::ClientContext* context, const ::camaramodule::SaveDirectoryRequest& request, ::camaramodule::CommandStatus* response) = 0;
+    std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>> AsyncSetSaveDirectory(::grpc::ClientContext* context, const ::camaramodule::SaveDirectoryRequest& request, ::grpc::CompletionQueue* cq) {
+      return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>>(AsyncSetSaveDirectoryRaw(context, request, cq));
+    }
+    std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>> PrepareAsyncSetSaveDirectory(::grpc::ClientContext* context, const ::camaramodule::SaveDirectoryRequest& request, ::grpc::CompletionQueue* cq) {
+      return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>>(PrepareAsyncSetSaveDirectoryRaw(context, request, cq));
+    }
+    // ── Per-camera state ──────────────────────────────────────────────────────
+    virtual ::grpc::Status GetCameraInfo(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::camaramodule::CameraState* response) = 0;
+    std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CameraState>> AsyncGetCameraInfo(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) {
+      return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CameraState>>(AsyncGetCameraInfoRaw(context, request, cq));
+    }
+    std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CameraState>> PrepareAsyncGetCameraInfo(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) {
+      return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CameraState>>(PrepareAsyncGetCameraInfoRaw(context, request, cq));
+    }
+    // ── Inter-process buffer management ──────────────────────────────────────
     virtual ::grpc::Status GetLatestImageFrame(::grpc::ClientContext* context, const ::camaramodule::FrameRequest& request, ::camaramodule::FrameInfo* response) = 0;
     std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::FrameInfo>> AsyncGetLatestImageFrame(::grpc::ClientContext* context, const ::camaramodule::FrameRequest& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::FrameInfo>>(AsyncGetLatestImageFrameRaw(context, request, cq));
@@ -92,20 +108,26 @@ class CameraControl final {
     class async_interface {
      public:
       virtual ~async_interface() {}
-      // Output State
+      // ── Module health & state ─────────────────────────────────────────────────
       virtual void GetSystemState(::grpc::ClientContext* context, const ::camaramodule::Empty* request, ::camaramodule::SystemState* response, std::function<void(::grpc::Status)>) = 0;
       virtual void GetSystemState(::grpc::ClientContext* context, const ::camaramodule::Empty* request, ::camaramodule::SystemState* response, ::grpc::ClientUnaryReactor* reactor) = 0;
-      // Control API & Parameters
-      virtual void StartAcquisition(::grpc::ClientContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)>) = 0;
-      virtual void StartAcquisition(::grpc::ClientContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response, ::grpc::ClientUnaryReactor* reactor) = 0;
-      virtual void StopAcquisition(::grpc::ClientContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)>) = 0;
-      virtual void StopAcquisition(::grpc::ClientContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response, ::grpc::ClientUnaryReactor* reactor) = 0;
+      // ── Acquisition control  (camera_id = -1 = all cameras) ──────────────────
+      virtual void StartAcquisition(::grpc::ClientContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)>) = 0;
+      virtual void StartAcquisition(::grpc::ClientContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CommandStatus* response, ::grpc::ClientUnaryReactor* reactor) = 0;
+      virtual void StopAcquisition(::grpc::ClientContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)>) = 0;
+      virtual void StopAcquisition(::grpc::ClientContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CommandStatus* response, ::grpc::ClientUnaryReactor* reactor) = 0;
+      // ── Parameter control  (camera_id = -1 = all cameras) ────────────────────
       virtual void SetParameter(::grpc::ClientContext* context, const ::camaramodule::ParameterRequest* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)>) = 0;
       virtual void SetParameter(::grpc::ClientContext* context, const ::camaramodule::ParameterRequest* request, ::camaramodule::CommandStatus* response, ::grpc::ClientUnaryReactor* reactor) = 0;
-      // Save Photo Trigger
+      // ── Disk save ─────────────────────────────────────────────────────────────
       virtual void TriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)>) = 0;
       virtual void TriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response, ::grpc::ClientUnaryReactor* reactor) = 0;
-      // Inter-process Buffer Management
+      virtual void SetSaveDirectory(::grpc::ClientContext* context, const ::camaramodule::SaveDirectoryRequest* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)>) = 0;
+      virtual void SetSaveDirectory(::grpc::ClientContext* context, const ::camaramodule::SaveDirectoryRequest* request, ::camaramodule::CommandStatus* response, ::grpc::ClientUnaryReactor* reactor) = 0;
+      // ── Per-camera state ──────────────────────────────────────────────────────
+      virtual void GetCameraInfo(::grpc::ClientContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CameraState* response, std::function<void(::grpc::Status)>) = 0;
+      virtual void GetCameraInfo(::grpc::ClientContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CameraState* response, ::grpc::ClientUnaryReactor* reactor) = 0;
+      // ── Inter-process buffer management ──────────────────────────────────────
       virtual void GetLatestImageFrame(::grpc::ClientContext* context, const ::camaramodule::FrameRequest* request, ::camaramodule::FrameInfo* response, std::function<void(::grpc::Status)>) = 0;
       virtual void GetLatestImageFrame(::grpc::ClientContext* context, const ::camaramodule::FrameRequest* request, ::camaramodule::FrameInfo* response, ::grpc::ClientUnaryReactor* reactor) = 0;
       virtual void ReleaseImageFrame(::grpc::ClientContext* context, const ::camaramodule::ReleaseRequest* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)>) = 0;
@@ -117,14 +139,18 @@ class CameraControl final {
    private:
     virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::SystemState>* AsyncGetSystemStateRaw(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) = 0;
     virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::SystemState>* PrepareAsyncGetSystemStateRaw(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) = 0;
-    virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>* AsyncStartAcquisitionRaw(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) = 0;
-    virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>* PrepareAsyncStartAcquisitionRaw(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) = 0;
-    virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>* AsyncStopAcquisitionRaw(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) = 0;
-    virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>* PrepareAsyncStopAcquisitionRaw(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) = 0;
+    virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>* AsyncStartAcquisitionRaw(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) = 0;
+    virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>* PrepareAsyncStartAcquisitionRaw(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) = 0;
+    virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>* AsyncStopAcquisitionRaw(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) = 0;
+    virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>* PrepareAsyncStopAcquisitionRaw(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) = 0;
     virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>* AsyncSetParameterRaw(::grpc::ClientContext* context, const ::camaramodule::ParameterRequest& request, ::grpc::CompletionQueue* cq) = 0;
     virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>* PrepareAsyncSetParameterRaw(::grpc::ClientContext* context, const ::camaramodule::ParameterRequest& request, ::grpc::CompletionQueue* cq) = 0;
     virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>* AsyncTriggerDiskSaveRaw(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) = 0;
     virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>* PrepareAsyncTriggerDiskSaveRaw(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) = 0;
+    virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>* AsyncSetSaveDirectoryRaw(::grpc::ClientContext* context, const ::camaramodule::SaveDirectoryRequest& request, ::grpc::CompletionQueue* cq) = 0;
+    virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>* PrepareAsyncSetSaveDirectoryRaw(::grpc::ClientContext* context, const ::camaramodule::SaveDirectoryRequest& request, ::grpc::CompletionQueue* cq) = 0;
+    virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CameraState>* AsyncGetCameraInfoRaw(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) = 0;
+    virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CameraState>* PrepareAsyncGetCameraInfoRaw(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) = 0;
     virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::FrameInfo>* AsyncGetLatestImageFrameRaw(::grpc::ClientContext* context, const ::camaramodule::FrameRequest& request, ::grpc::CompletionQueue* cq) = 0;
     virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::FrameInfo>* PrepareAsyncGetLatestImageFrameRaw(::grpc::ClientContext* context, const ::camaramodule::FrameRequest& request, ::grpc::CompletionQueue* cq) = 0;
     virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>* AsyncReleaseImageFrameRaw(::grpc::ClientContext* context, const ::camaramodule::ReleaseRequest& request, ::grpc::CompletionQueue* cq) = 0;
@@ -140,18 +166,18 @@ class CameraControl final {
     std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::SystemState>> PrepareAsyncGetSystemState(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::SystemState>>(PrepareAsyncGetSystemStateRaw(context, request, cq));
     }
-    ::grpc::Status StartAcquisition(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::camaramodule::CommandStatus* response) override;
-    std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>> AsyncStartAcquisition(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) {
+    ::grpc::Status StartAcquisition(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::camaramodule::CommandStatus* response) override;
+    std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>> AsyncStartAcquisition(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>>(AsyncStartAcquisitionRaw(context, request, cq));
     }
-    std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>> PrepareAsyncStartAcquisition(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) {
+    std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>> PrepareAsyncStartAcquisition(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>>(PrepareAsyncStartAcquisitionRaw(context, request, cq));
     }
-    ::grpc::Status StopAcquisition(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::camaramodule::CommandStatus* response) override;
-    std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>> AsyncStopAcquisition(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) {
+    ::grpc::Status StopAcquisition(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::camaramodule::CommandStatus* response) override;
+    std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>> AsyncStopAcquisition(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>>(AsyncStopAcquisitionRaw(context, request, cq));
     }
-    std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>> PrepareAsyncStopAcquisition(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) {
+    std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>> PrepareAsyncStopAcquisition(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>>(PrepareAsyncStopAcquisitionRaw(context, request, cq));
     }
     ::grpc::Status SetParameter(::grpc::ClientContext* context, const ::camaramodule::ParameterRequest& request, ::camaramodule::CommandStatus* response) override;
@@ -167,6 +193,20 @@ class CameraControl final {
     }
     std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>> PrepareAsyncTriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>>(PrepareAsyncTriggerDiskSaveRaw(context, request, cq));
+    }
+    ::grpc::Status SetSaveDirectory(::grpc::ClientContext* context, const ::camaramodule::SaveDirectoryRequest& request, ::camaramodule::CommandStatus* response) override;
+    std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>> AsyncSetSaveDirectory(::grpc::ClientContext* context, const ::camaramodule::SaveDirectoryRequest& request, ::grpc::CompletionQueue* cq) {
+      return std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>>(AsyncSetSaveDirectoryRaw(context, request, cq));
+    }
+    std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>> PrepareAsyncSetSaveDirectory(::grpc::ClientContext* context, const ::camaramodule::SaveDirectoryRequest& request, ::grpc::CompletionQueue* cq) {
+      return std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>>(PrepareAsyncSetSaveDirectoryRaw(context, request, cq));
+    }
+    ::grpc::Status GetCameraInfo(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::camaramodule::CameraState* response) override;
+    std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CameraState>> AsyncGetCameraInfo(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) {
+      return std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CameraState>>(AsyncGetCameraInfoRaw(context, request, cq));
+    }
+    std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CameraState>> PrepareAsyncGetCameraInfo(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) {
+      return std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CameraState>>(PrepareAsyncGetCameraInfoRaw(context, request, cq));
     }
     ::grpc::Status GetLatestImageFrame(::grpc::ClientContext* context, const ::camaramodule::FrameRequest& request, ::camaramodule::FrameInfo* response) override;
     std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::FrameInfo>> AsyncGetLatestImageFrame(::grpc::ClientContext* context, const ::camaramodule::FrameRequest& request, ::grpc::CompletionQueue* cq) {
@@ -187,14 +227,18 @@ class CameraControl final {
      public:
       void GetSystemState(::grpc::ClientContext* context, const ::camaramodule::Empty* request, ::camaramodule::SystemState* response, std::function<void(::grpc::Status)>) override;
       void GetSystemState(::grpc::ClientContext* context, const ::camaramodule::Empty* request, ::camaramodule::SystemState* response, ::grpc::ClientUnaryReactor* reactor) override;
-      void StartAcquisition(::grpc::ClientContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)>) override;
-      void StartAcquisition(::grpc::ClientContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response, ::grpc::ClientUnaryReactor* reactor) override;
-      void StopAcquisition(::grpc::ClientContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)>) override;
-      void StopAcquisition(::grpc::ClientContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response, ::grpc::ClientUnaryReactor* reactor) override;
+      void StartAcquisition(::grpc::ClientContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)>) override;
+      void StartAcquisition(::grpc::ClientContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CommandStatus* response, ::grpc::ClientUnaryReactor* reactor) override;
+      void StopAcquisition(::grpc::ClientContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)>) override;
+      void StopAcquisition(::grpc::ClientContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CommandStatus* response, ::grpc::ClientUnaryReactor* reactor) override;
       void SetParameter(::grpc::ClientContext* context, const ::camaramodule::ParameterRequest* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)>) override;
       void SetParameter(::grpc::ClientContext* context, const ::camaramodule::ParameterRequest* request, ::camaramodule::CommandStatus* response, ::grpc::ClientUnaryReactor* reactor) override;
       void TriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)>) override;
       void TriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response, ::grpc::ClientUnaryReactor* reactor) override;
+      void SetSaveDirectory(::grpc::ClientContext* context, const ::camaramodule::SaveDirectoryRequest* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)>) override;
+      void SetSaveDirectory(::grpc::ClientContext* context, const ::camaramodule::SaveDirectoryRequest* request, ::camaramodule::CommandStatus* response, ::grpc::ClientUnaryReactor* reactor) override;
+      void GetCameraInfo(::grpc::ClientContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CameraState* response, std::function<void(::grpc::Status)>) override;
+      void GetCameraInfo(::grpc::ClientContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CameraState* response, ::grpc::ClientUnaryReactor* reactor) override;
       void GetLatestImageFrame(::grpc::ClientContext* context, const ::camaramodule::FrameRequest* request, ::camaramodule::FrameInfo* response, std::function<void(::grpc::Status)>) override;
       void GetLatestImageFrame(::grpc::ClientContext* context, const ::camaramodule::FrameRequest* request, ::camaramodule::FrameInfo* response, ::grpc::ClientUnaryReactor* reactor) override;
       void ReleaseImageFrame(::grpc::ClientContext* context, const ::camaramodule::ReleaseRequest* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)>) override;
@@ -212,14 +256,18 @@ class CameraControl final {
     class async async_stub_{this};
     ::grpc::ClientAsyncResponseReader< ::camaramodule::SystemState>* AsyncGetSystemStateRaw(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) override;
     ::grpc::ClientAsyncResponseReader< ::camaramodule::SystemState>* PrepareAsyncGetSystemStateRaw(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) override;
-    ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* AsyncStartAcquisitionRaw(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) override;
-    ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* PrepareAsyncStartAcquisitionRaw(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) override;
-    ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* AsyncStopAcquisitionRaw(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) override;
-    ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* PrepareAsyncStopAcquisitionRaw(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) override;
+    ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* AsyncStartAcquisitionRaw(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) override;
+    ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* PrepareAsyncStartAcquisitionRaw(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) override;
+    ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* AsyncStopAcquisitionRaw(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) override;
+    ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* PrepareAsyncStopAcquisitionRaw(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) override;
     ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* AsyncSetParameterRaw(::grpc::ClientContext* context, const ::camaramodule::ParameterRequest& request, ::grpc::CompletionQueue* cq) override;
     ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* PrepareAsyncSetParameterRaw(::grpc::ClientContext* context, const ::camaramodule::ParameterRequest& request, ::grpc::CompletionQueue* cq) override;
     ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* AsyncTriggerDiskSaveRaw(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) override;
     ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* PrepareAsyncTriggerDiskSaveRaw(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) override;
+    ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* AsyncSetSaveDirectoryRaw(::grpc::ClientContext* context, const ::camaramodule::SaveDirectoryRequest& request, ::grpc::CompletionQueue* cq) override;
+    ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* PrepareAsyncSetSaveDirectoryRaw(::grpc::ClientContext* context, const ::camaramodule::SaveDirectoryRequest& request, ::grpc::CompletionQueue* cq) override;
+    ::grpc::ClientAsyncResponseReader< ::camaramodule::CameraState>* AsyncGetCameraInfoRaw(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) override;
+    ::grpc::ClientAsyncResponseReader< ::camaramodule::CameraState>* PrepareAsyncGetCameraInfoRaw(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) override;
     ::grpc::ClientAsyncResponseReader< ::camaramodule::FrameInfo>* AsyncGetLatestImageFrameRaw(::grpc::ClientContext* context, const ::camaramodule::FrameRequest& request, ::grpc::CompletionQueue* cq) override;
     ::grpc::ClientAsyncResponseReader< ::camaramodule::FrameInfo>* PrepareAsyncGetLatestImageFrameRaw(::grpc::ClientContext* context, const ::camaramodule::FrameRequest& request, ::grpc::CompletionQueue* cq) override;
     ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* AsyncReleaseImageFrameRaw(::grpc::ClientContext* context, const ::camaramodule::ReleaseRequest& request, ::grpc::CompletionQueue* cq) override;
@@ -229,6 +277,8 @@ class CameraControl final {
     const ::grpc::internal::RpcMethod rpcmethod_StopAcquisition_;
     const ::grpc::internal::RpcMethod rpcmethod_SetParameter_;
     const ::grpc::internal::RpcMethod rpcmethod_TriggerDiskSave_;
+    const ::grpc::internal::RpcMethod rpcmethod_SetSaveDirectory_;
+    const ::grpc::internal::RpcMethod rpcmethod_GetCameraInfo_;
     const ::grpc::internal::RpcMethod rpcmethod_GetLatestImageFrame_;
     const ::grpc::internal::RpcMethod rpcmethod_ReleaseImageFrame_;
   };
@@ -238,15 +288,19 @@ class CameraControl final {
    public:
     Service();
     virtual ~Service();
-    // Output State
+    // ── Module health & state ─────────────────────────────────────────────────
     virtual ::grpc::Status GetSystemState(::grpc::ServerContext* context, const ::camaramodule::Empty* request, ::camaramodule::SystemState* response);
-    // Control API & Parameters
-    virtual ::grpc::Status StartAcquisition(::grpc::ServerContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response);
-    virtual ::grpc::Status StopAcquisition(::grpc::ServerContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response);
+    // ── Acquisition control  (camera_id = -1 = all cameras) ──────────────────
+    virtual ::grpc::Status StartAcquisition(::grpc::ServerContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CommandStatus* response);
+    virtual ::grpc::Status StopAcquisition(::grpc::ServerContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CommandStatus* response);
+    // ── Parameter control  (camera_id = -1 = all cameras) ────────────────────
     virtual ::grpc::Status SetParameter(::grpc::ServerContext* context, const ::camaramodule::ParameterRequest* request, ::camaramodule::CommandStatus* response);
-    // Save Photo Trigger
+    // ── Disk save ─────────────────────────────────────────────────────────────
     virtual ::grpc::Status TriggerDiskSave(::grpc::ServerContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response);
-    // Inter-process Buffer Management
+    virtual ::grpc::Status SetSaveDirectory(::grpc::ServerContext* context, const ::camaramodule::SaveDirectoryRequest* request, ::camaramodule::CommandStatus* response);
+    // ── Per-camera state ──────────────────────────────────────────────────────
+    virtual ::grpc::Status GetCameraInfo(::grpc::ServerContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CameraState* response);
+    // ── Inter-process buffer management ──────────────────────────────────────
     virtual ::grpc::Status GetLatestImageFrame(::grpc::ServerContext* context, const ::camaramodule::FrameRequest* request, ::camaramodule::FrameInfo* response);
     virtual ::grpc::Status ReleaseImageFrame(::grpc::ServerContext* context, const ::camaramodule::ReleaseRequest* request, ::camaramodule::CommandStatus* response);
   };
@@ -282,11 +336,11 @@ class CameraControl final {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable synchronous version of this method
-    ::grpc::Status StartAcquisition(::grpc::ServerContext* /*context*/, const ::camaramodule::Empty* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
+    ::grpc::Status StartAcquisition(::grpc::ServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
-    void RequestStartAcquisition(::grpc::ServerContext* context, ::camaramodule::Empty* request, ::grpc::ServerAsyncResponseWriter< ::camaramodule::CommandStatus>* response, ::grpc::CompletionQueue* new_call_cq, ::grpc::ServerCompletionQueue* notification_cq, void *tag) {
+    void RequestStartAcquisition(::grpc::ServerContext* context, ::camaramodule::CameraRequest* request, ::grpc::ServerAsyncResponseWriter< ::camaramodule::CommandStatus>* response, ::grpc::CompletionQueue* new_call_cq, ::grpc::ServerCompletionQueue* notification_cq, void *tag) {
       ::grpc::Service::RequestAsyncUnary(1, context, request, response, new_call_cq, notification_cq, tag);
     }
   };
@@ -302,11 +356,11 @@ class CameraControl final {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable synchronous version of this method
-    ::grpc::Status StopAcquisition(::grpc::ServerContext* /*context*/, const ::camaramodule::Empty* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
+    ::grpc::Status StopAcquisition(::grpc::ServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
-    void RequestStopAcquisition(::grpc::ServerContext* context, ::camaramodule::Empty* request, ::grpc::ServerAsyncResponseWriter< ::camaramodule::CommandStatus>* response, ::grpc::CompletionQueue* new_call_cq, ::grpc::ServerCompletionQueue* notification_cq, void *tag) {
+    void RequestStopAcquisition(::grpc::ServerContext* context, ::camaramodule::CameraRequest* request, ::grpc::ServerAsyncResponseWriter< ::camaramodule::CommandStatus>* response, ::grpc::CompletionQueue* new_call_cq, ::grpc::ServerCompletionQueue* notification_cq, void *tag) {
       ::grpc::Service::RequestAsyncUnary(2, context, request, response, new_call_cq, notification_cq, tag);
     }
   };
@@ -351,12 +405,52 @@ class CameraControl final {
     }
   };
   template <class BaseClass>
+  class WithAsyncMethod_SetSaveDirectory : public BaseClass {
+   private:
+    void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
+   public:
+    WithAsyncMethod_SetSaveDirectory() {
+      ::grpc::Service::MarkMethodAsync(5);
+    }
+    ~WithAsyncMethod_SetSaveDirectory() override {
+      BaseClassMustBeDerivedFromService(this);
+    }
+    // disable synchronous version of this method
+    ::grpc::Status SetSaveDirectory(::grpc::ServerContext* /*context*/, const ::camaramodule::SaveDirectoryRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
+      abort();
+      return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
+    }
+    void RequestSetSaveDirectory(::grpc::ServerContext* context, ::camaramodule::SaveDirectoryRequest* request, ::grpc::ServerAsyncResponseWriter< ::camaramodule::CommandStatus>* response, ::grpc::CompletionQueue* new_call_cq, ::grpc::ServerCompletionQueue* notification_cq, void *tag) {
+      ::grpc::Service::RequestAsyncUnary(5, context, request, response, new_call_cq, notification_cq, tag);
+    }
+  };
+  template <class BaseClass>
+  class WithAsyncMethod_GetCameraInfo : public BaseClass {
+   private:
+    void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
+   public:
+    WithAsyncMethod_GetCameraInfo() {
+      ::grpc::Service::MarkMethodAsync(6);
+    }
+    ~WithAsyncMethod_GetCameraInfo() override {
+      BaseClassMustBeDerivedFromService(this);
+    }
+    // disable synchronous version of this method
+    ::grpc::Status GetCameraInfo(::grpc::ServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CameraState* /*response*/) override {
+      abort();
+      return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
+    }
+    void RequestGetCameraInfo(::grpc::ServerContext* context, ::camaramodule::CameraRequest* request, ::grpc::ServerAsyncResponseWriter< ::camaramodule::CameraState>* response, ::grpc::CompletionQueue* new_call_cq, ::grpc::ServerCompletionQueue* notification_cq, void *tag) {
+      ::grpc::Service::RequestAsyncUnary(6, context, request, response, new_call_cq, notification_cq, tag);
+    }
+  };
+  template <class BaseClass>
   class WithAsyncMethod_GetLatestImageFrame : public BaseClass {
    private:
     void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
    public:
     WithAsyncMethod_GetLatestImageFrame() {
-      ::grpc::Service::MarkMethodAsync(5);
+      ::grpc::Service::MarkMethodAsync(7);
     }
     ~WithAsyncMethod_GetLatestImageFrame() override {
       BaseClassMustBeDerivedFromService(this);
@@ -367,7 +461,7 @@ class CameraControl final {
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
     void RequestGetLatestImageFrame(::grpc::ServerContext* context, ::camaramodule::FrameRequest* request, ::grpc::ServerAsyncResponseWriter< ::camaramodule::FrameInfo>* response, ::grpc::CompletionQueue* new_call_cq, ::grpc::ServerCompletionQueue* notification_cq, void *tag) {
-      ::grpc::Service::RequestAsyncUnary(5, context, request, response, new_call_cq, notification_cq, tag);
+      ::grpc::Service::RequestAsyncUnary(7, context, request, response, new_call_cq, notification_cq, tag);
     }
   };
   template <class BaseClass>
@@ -376,7 +470,7 @@ class CameraControl final {
     void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
    public:
     WithAsyncMethod_ReleaseImageFrame() {
-      ::grpc::Service::MarkMethodAsync(6);
+      ::grpc::Service::MarkMethodAsync(8);
     }
     ~WithAsyncMethod_ReleaseImageFrame() override {
       BaseClassMustBeDerivedFromService(this);
@@ -387,10 +481,10 @@ class CameraControl final {
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
     void RequestReleaseImageFrame(::grpc::ServerContext* context, ::camaramodule::ReleaseRequest* request, ::grpc::ServerAsyncResponseWriter< ::camaramodule::CommandStatus>* response, ::grpc::CompletionQueue* new_call_cq, ::grpc::ServerCompletionQueue* notification_cq, void *tag) {
-      ::grpc::Service::RequestAsyncUnary(6, context, request, response, new_call_cq, notification_cq, tag);
+      ::grpc::Service::RequestAsyncUnary(8, context, request, response, new_call_cq, notification_cq, tag);
     }
   };
-  typedef WithAsyncMethod_GetSystemState<WithAsyncMethod_StartAcquisition<WithAsyncMethod_StopAcquisition<WithAsyncMethod_SetParameter<WithAsyncMethod_TriggerDiskSave<WithAsyncMethod_GetLatestImageFrame<WithAsyncMethod_ReleaseImageFrame<Service > > > > > > > AsyncService;
+  typedef WithAsyncMethod_GetSystemState<WithAsyncMethod_StartAcquisition<WithAsyncMethod_StopAcquisition<WithAsyncMethod_SetParameter<WithAsyncMethod_TriggerDiskSave<WithAsyncMethod_SetSaveDirectory<WithAsyncMethod_GetCameraInfo<WithAsyncMethod_GetLatestImageFrame<WithAsyncMethod_ReleaseImageFrame<Service > > > > > > > > > AsyncService;
   template <class BaseClass>
   class WithCallbackMethod_GetSystemState : public BaseClass {
    private:
@@ -425,25 +519,25 @@ class CameraControl final {
    public:
     WithCallbackMethod_StartAcquisition() {
       ::grpc::Service::MarkMethodCallback(1,
-          new ::grpc::internal::CallbackUnaryHandler< ::camaramodule::Empty, ::camaramodule::CommandStatus>(
+          new ::grpc::internal::CallbackUnaryHandler< ::camaramodule::CameraRequest, ::camaramodule::CommandStatus>(
             [this](
-                   ::grpc::CallbackServerContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response) { return this->StartAcquisition(context, request, response); }));}
+                   ::grpc::CallbackServerContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CommandStatus* response) { return this->StartAcquisition(context, request, response); }));}
     void SetMessageAllocatorFor_StartAcquisition(
-        ::grpc::MessageAllocator< ::camaramodule::Empty, ::camaramodule::CommandStatus>* allocator) {
+        ::grpc::MessageAllocator< ::camaramodule::CameraRequest, ::camaramodule::CommandStatus>* allocator) {
       ::grpc::internal::MethodHandler* const handler = ::grpc::Service::GetHandler(1);
-      static_cast<::grpc::internal::CallbackUnaryHandler< ::camaramodule::Empty, ::camaramodule::CommandStatus>*>(handler)
+      static_cast<::grpc::internal::CallbackUnaryHandler< ::camaramodule::CameraRequest, ::camaramodule::CommandStatus>*>(handler)
               ->SetMessageAllocator(allocator);
     }
     ~WithCallbackMethod_StartAcquisition() override {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable synchronous version of this method
-    ::grpc::Status StartAcquisition(::grpc::ServerContext* /*context*/, const ::camaramodule::Empty* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
+    ::grpc::Status StartAcquisition(::grpc::ServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
     virtual ::grpc::ServerUnaryReactor* StartAcquisition(
-      ::grpc::CallbackServerContext* /*context*/, const ::camaramodule::Empty* /*request*/, ::camaramodule::CommandStatus* /*response*/)  { return nullptr; }
+      ::grpc::CallbackServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/)  { return nullptr; }
   };
   template <class BaseClass>
   class WithCallbackMethod_StopAcquisition : public BaseClass {
@@ -452,25 +546,25 @@ class CameraControl final {
    public:
     WithCallbackMethod_StopAcquisition() {
       ::grpc::Service::MarkMethodCallback(2,
-          new ::grpc::internal::CallbackUnaryHandler< ::camaramodule::Empty, ::camaramodule::CommandStatus>(
+          new ::grpc::internal::CallbackUnaryHandler< ::camaramodule::CameraRequest, ::camaramodule::CommandStatus>(
             [this](
-                   ::grpc::CallbackServerContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response) { return this->StopAcquisition(context, request, response); }));}
+                   ::grpc::CallbackServerContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CommandStatus* response) { return this->StopAcquisition(context, request, response); }));}
     void SetMessageAllocatorFor_StopAcquisition(
-        ::grpc::MessageAllocator< ::camaramodule::Empty, ::camaramodule::CommandStatus>* allocator) {
+        ::grpc::MessageAllocator< ::camaramodule::CameraRequest, ::camaramodule::CommandStatus>* allocator) {
       ::grpc::internal::MethodHandler* const handler = ::grpc::Service::GetHandler(2);
-      static_cast<::grpc::internal::CallbackUnaryHandler< ::camaramodule::Empty, ::camaramodule::CommandStatus>*>(handler)
+      static_cast<::grpc::internal::CallbackUnaryHandler< ::camaramodule::CameraRequest, ::camaramodule::CommandStatus>*>(handler)
               ->SetMessageAllocator(allocator);
     }
     ~WithCallbackMethod_StopAcquisition() override {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable synchronous version of this method
-    ::grpc::Status StopAcquisition(::grpc::ServerContext* /*context*/, const ::camaramodule::Empty* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
+    ::grpc::Status StopAcquisition(::grpc::ServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
     virtual ::grpc::ServerUnaryReactor* StopAcquisition(
-      ::grpc::CallbackServerContext* /*context*/, const ::camaramodule::Empty* /*request*/, ::camaramodule::CommandStatus* /*response*/)  { return nullptr; }
+      ::grpc::CallbackServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/)  { return nullptr; }
   };
   template <class BaseClass>
   class WithCallbackMethod_SetParameter : public BaseClass {
@@ -527,18 +621,72 @@ class CameraControl final {
       ::grpc::CallbackServerContext* /*context*/, const ::camaramodule::Empty* /*request*/, ::camaramodule::CommandStatus* /*response*/)  { return nullptr; }
   };
   template <class BaseClass>
+  class WithCallbackMethod_SetSaveDirectory : public BaseClass {
+   private:
+    void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
+   public:
+    WithCallbackMethod_SetSaveDirectory() {
+      ::grpc::Service::MarkMethodCallback(5,
+          new ::grpc::internal::CallbackUnaryHandler< ::camaramodule::SaveDirectoryRequest, ::camaramodule::CommandStatus>(
+            [this](
+                   ::grpc::CallbackServerContext* context, const ::camaramodule::SaveDirectoryRequest* request, ::camaramodule::CommandStatus* response) { return this->SetSaveDirectory(context, request, response); }));}
+    void SetMessageAllocatorFor_SetSaveDirectory(
+        ::grpc::MessageAllocator< ::camaramodule::SaveDirectoryRequest, ::camaramodule::CommandStatus>* allocator) {
+      ::grpc::internal::MethodHandler* const handler = ::grpc::Service::GetHandler(5);
+      static_cast<::grpc::internal::CallbackUnaryHandler< ::camaramodule::SaveDirectoryRequest, ::camaramodule::CommandStatus>*>(handler)
+              ->SetMessageAllocator(allocator);
+    }
+    ~WithCallbackMethod_SetSaveDirectory() override {
+      BaseClassMustBeDerivedFromService(this);
+    }
+    // disable synchronous version of this method
+    ::grpc::Status SetSaveDirectory(::grpc::ServerContext* /*context*/, const ::camaramodule::SaveDirectoryRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
+      abort();
+      return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
+    }
+    virtual ::grpc::ServerUnaryReactor* SetSaveDirectory(
+      ::grpc::CallbackServerContext* /*context*/, const ::camaramodule::SaveDirectoryRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/)  { return nullptr; }
+  };
+  template <class BaseClass>
+  class WithCallbackMethod_GetCameraInfo : public BaseClass {
+   private:
+    void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
+   public:
+    WithCallbackMethod_GetCameraInfo() {
+      ::grpc::Service::MarkMethodCallback(6,
+          new ::grpc::internal::CallbackUnaryHandler< ::camaramodule::CameraRequest, ::camaramodule::CameraState>(
+            [this](
+                   ::grpc::CallbackServerContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CameraState* response) { return this->GetCameraInfo(context, request, response); }));}
+    void SetMessageAllocatorFor_GetCameraInfo(
+        ::grpc::MessageAllocator< ::camaramodule::CameraRequest, ::camaramodule::CameraState>* allocator) {
+      ::grpc::internal::MethodHandler* const handler = ::grpc::Service::GetHandler(6);
+      static_cast<::grpc::internal::CallbackUnaryHandler< ::camaramodule::CameraRequest, ::camaramodule::CameraState>*>(handler)
+              ->SetMessageAllocator(allocator);
+    }
+    ~WithCallbackMethod_GetCameraInfo() override {
+      BaseClassMustBeDerivedFromService(this);
+    }
+    // disable synchronous version of this method
+    ::grpc::Status GetCameraInfo(::grpc::ServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CameraState* /*response*/) override {
+      abort();
+      return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
+    }
+    virtual ::grpc::ServerUnaryReactor* GetCameraInfo(
+      ::grpc::CallbackServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CameraState* /*response*/)  { return nullptr; }
+  };
+  template <class BaseClass>
   class WithCallbackMethod_GetLatestImageFrame : public BaseClass {
    private:
     void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
    public:
     WithCallbackMethod_GetLatestImageFrame() {
-      ::grpc::Service::MarkMethodCallback(5,
+      ::grpc::Service::MarkMethodCallback(7,
           new ::grpc::internal::CallbackUnaryHandler< ::camaramodule::FrameRequest, ::camaramodule::FrameInfo>(
             [this](
                    ::grpc::CallbackServerContext* context, const ::camaramodule::FrameRequest* request, ::camaramodule::FrameInfo* response) { return this->GetLatestImageFrame(context, request, response); }));}
     void SetMessageAllocatorFor_GetLatestImageFrame(
         ::grpc::MessageAllocator< ::camaramodule::FrameRequest, ::camaramodule::FrameInfo>* allocator) {
-      ::grpc::internal::MethodHandler* const handler = ::grpc::Service::GetHandler(5);
+      ::grpc::internal::MethodHandler* const handler = ::grpc::Service::GetHandler(7);
       static_cast<::grpc::internal::CallbackUnaryHandler< ::camaramodule::FrameRequest, ::camaramodule::FrameInfo>*>(handler)
               ->SetMessageAllocator(allocator);
     }
@@ -559,13 +707,13 @@ class CameraControl final {
     void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
    public:
     WithCallbackMethod_ReleaseImageFrame() {
-      ::grpc::Service::MarkMethodCallback(6,
+      ::grpc::Service::MarkMethodCallback(8,
           new ::grpc::internal::CallbackUnaryHandler< ::camaramodule::ReleaseRequest, ::camaramodule::CommandStatus>(
             [this](
                    ::grpc::CallbackServerContext* context, const ::camaramodule::ReleaseRequest* request, ::camaramodule::CommandStatus* response) { return this->ReleaseImageFrame(context, request, response); }));}
     void SetMessageAllocatorFor_ReleaseImageFrame(
         ::grpc::MessageAllocator< ::camaramodule::ReleaseRequest, ::camaramodule::CommandStatus>* allocator) {
-      ::grpc::internal::MethodHandler* const handler = ::grpc::Service::GetHandler(6);
+      ::grpc::internal::MethodHandler* const handler = ::grpc::Service::GetHandler(8);
       static_cast<::grpc::internal::CallbackUnaryHandler< ::camaramodule::ReleaseRequest, ::camaramodule::CommandStatus>*>(handler)
               ->SetMessageAllocator(allocator);
     }
@@ -580,7 +728,7 @@ class CameraControl final {
     virtual ::grpc::ServerUnaryReactor* ReleaseImageFrame(
       ::grpc::CallbackServerContext* /*context*/, const ::camaramodule::ReleaseRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/)  { return nullptr; }
   };
-  typedef WithCallbackMethod_GetSystemState<WithCallbackMethod_StartAcquisition<WithCallbackMethod_StopAcquisition<WithCallbackMethod_SetParameter<WithCallbackMethod_TriggerDiskSave<WithCallbackMethod_GetLatestImageFrame<WithCallbackMethod_ReleaseImageFrame<Service > > > > > > > CallbackService;
+  typedef WithCallbackMethod_GetSystemState<WithCallbackMethod_StartAcquisition<WithCallbackMethod_StopAcquisition<WithCallbackMethod_SetParameter<WithCallbackMethod_TriggerDiskSave<WithCallbackMethod_SetSaveDirectory<WithCallbackMethod_GetCameraInfo<WithCallbackMethod_GetLatestImageFrame<WithCallbackMethod_ReleaseImageFrame<Service > > > > > > > > > CallbackService;
   typedef CallbackService ExperimentalCallbackService;
   template <class BaseClass>
   class WithGenericMethod_GetSystemState : public BaseClass {
@@ -611,7 +759,7 @@ class CameraControl final {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable synchronous version of this method
-    ::grpc::Status StartAcquisition(::grpc::ServerContext* /*context*/, const ::camaramodule::Empty* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
+    ::grpc::Status StartAcquisition(::grpc::ServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
@@ -628,7 +776,7 @@ class CameraControl final {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable synchronous version of this method
-    ::grpc::Status StopAcquisition(::grpc::ServerContext* /*context*/, const ::camaramodule::Empty* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
+    ::grpc::Status StopAcquisition(::grpc::ServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
@@ -668,12 +816,46 @@ class CameraControl final {
     }
   };
   template <class BaseClass>
+  class WithGenericMethod_SetSaveDirectory : public BaseClass {
+   private:
+    void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
+   public:
+    WithGenericMethod_SetSaveDirectory() {
+      ::grpc::Service::MarkMethodGeneric(5);
+    }
+    ~WithGenericMethod_SetSaveDirectory() override {
+      BaseClassMustBeDerivedFromService(this);
+    }
+    // disable synchronous version of this method
+    ::grpc::Status SetSaveDirectory(::grpc::ServerContext* /*context*/, const ::camaramodule::SaveDirectoryRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
+      abort();
+      return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
+    }
+  };
+  template <class BaseClass>
+  class WithGenericMethod_GetCameraInfo : public BaseClass {
+   private:
+    void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
+   public:
+    WithGenericMethod_GetCameraInfo() {
+      ::grpc::Service::MarkMethodGeneric(6);
+    }
+    ~WithGenericMethod_GetCameraInfo() override {
+      BaseClassMustBeDerivedFromService(this);
+    }
+    // disable synchronous version of this method
+    ::grpc::Status GetCameraInfo(::grpc::ServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CameraState* /*response*/) override {
+      abort();
+      return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
+    }
+  };
+  template <class BaseClass>
   class WithGenericMethod_GetLatestImageFrame : public BaseClass {
    private:
     void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
    public:
     WithGenericMethod_GetLatestImageFrame() {
-      ::grpc::Service::MarkMethodGeneric(5);
+      ::grpc::Service::MarkMethodGeneric(7);
     }
     ~WithGenericMethod_GetLatestImageFrame() override {
       BaseClassMustBeDerivedFromService(this);
@@ -690,7 +872,7 @@ class CameraControl final {
     void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
    public:
     WithGenericMethod_ReleaseImageFrame() {
-      ::grpc::Service::MarkMethodGeneric(6);
+      ::grpc::Service::MarkMethodGeneric(8);
     }
     ~WithGenericMethod_ReleaseImageFrame() override {
       BaseClassMustBeDerivedFromService(this);
@@ -733,7 +915,7 @@ class CameraControl final {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable synchronous version of this method
-    ::grpc::Status StartAcquisition(::grpc::ServerContext* /*context*/, const ::camaramodule::Empty* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
+    ::grpc::Status StartAcquisition(::grpc::ServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
@@ -753,7 +935,7 @@ class CameraControl final {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable synchronous version of this method
-    ::grpc::Status StopAcquisition(::grpc::ServerContext* /*context*/, const ::camaramodule::Empty* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
+    ::grpc::Status StopAcquisition(::grpc::ServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
@@ -802,12 +984,52 @@ class CameraControl final {
     }
   };
   template <class BaseClass>
+  class WithRawMethod_SetSaveDirectory : public BaseClass {
+   private:
+    void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
+   public:
+    WithRawMethod_SetSaveDirectory() {
+      ::grpc::Service::MarkMethodRaw(5);
+    }
+    ~WithRawMethod_SetSaveDirectory() override {
+      BaseClassMustBeDerivedFromService(this);
+    }
+    // disable synchronous version of this method
+    ::grpc::Status SetSaveDirectory(::grpc::ServerContext* /*context*/, const ::camaramodule::SaveDirectoryRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
+      abort();
+      return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
+    }
+    void RequestSetSaveDirectory(::grpc::ServerContext* context, ::grpc::ByteBuffer* request, ::grpc::ServerAsyncResponseWriter< ::grpc::ByteBuffer>* response, ::grpc::CompletionQueue* new_call_cq, ::grpc::ServerCompletionQueue* notification_cq, void *tag) {
+      ::grpc::Service::RequestAsyncUnary(5, context, request, response, new_call_cq, notification_cq, tag);
+    }
+  };
+  template <class BaseClass>
+  class WithRawMethod_GetCameraInfo : public BaseClass {
+   private:
+    void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
+   public:
+    WithRawMethod_GetCameraInfo() {
+      ::grpc::Service::MarkMethodRaw(6);
+    }
+    ~WithRawMethod_GetCameraInfo() override {
+      BaseClassMustBeDerivedFromService(this);
+    }
+    // disable synchronous version of this method
+    ::grpc::Status GetCameraInfo(::grpc::ServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CameraState* /*response*/) override {
+      abort();
+      return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
+    }
+    void RequestGetCameraInfo(::grpc::ServerContext* context, ::grpc::ByteBuffer* request, ::grpc::ServerAsyncResponseWriter< ::grpc::ByteBuffer>* response, ::grpc::CompletionQueue* new_call_cq, ::grpc::ServerCompletionQueue* notification_cq, void *tag) {
+      ::grpc::Service::RequestAsyncUnary(6, context, request, response, new_call_cq, notification_cq, tag);
+    }
+  };
+  template <class BaseClass>
   class WithRawMethod_GetLatestImageFrame : public BaseClass {
    private:
     void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
    public:
     WithRawMethod_GetLatestImageFrame() {
-      ::grpc::Service::MarkMethodRaw(5);
+      ::grpc::Service::MarkMethodRaw(7);
     }
     ~WithRawMethod_GetLatestImageFrame() override {
       BaseClassMustBeDerivedFromService(this);
@@ -818,7 +1040,7 @@ class CameraControl final {
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
     void RequestGetLatestImageFrame(::grpc::ServerContext* context, ::grpc::ByteBuffer* request, ::grpc::ServerAsyncResponseWriter< ::grpc::ByteBuffer>* response, ::grpc::CompletionQueue* new_call_cq, ::grpc::ServerCompletionQueue* notification_cq, void *tag) {
-      ::grpc::Service::RequestAsyncUnary(5, context, request, response, new_call_cq, notification_cq, tag);
+      ::grpc::Service::RequestAsyncUnary(7, context, request, response, new_call_cq, notification_cq, tag);
     }
   };
   template <class BaseClass>
@@ -827,7 +1049,7 @@ class CameraControl final {
     void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
    public:
     WithRawMethod_ReleaseImageFrame() {
-      ::grpc::Service::MarkMethodRaw(6);
+      ::grpc::Service::MarkMethodRaw(8);
     }
     ~WithRawMethod_ReleaseImageFrame() override {
       BaseClassMustBeDerivedFromService(this);
@@ -838,7 +1060,7 @@ class CameraControl final {
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
     void RequestReleaseImageFrame(::grpc::ServerContext* context, ::grpc::ByteBuffer* request, ::grpc::ServerAsyncResponseWriter< ::grpc::ByteBuffer>* response, ::grpc::CompletionQueue* new_call_cq, ::grpc::ServerCompletionQueue* notification_cq, void *tag) {
-      ::grpc::Service::RequestAsyncUnary(6, context, request, response, new_call_cq, notification_cq, tag);
+      ::grpc::Service::RequestAsyncUnary(8, context, request, response, new_call_cq, notification_cq, tag);
     }
   };
   template <class BaseClass>
@@ -878,7 +1100,7 @@ class CameraControl final {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable synchronous version of this method
-    ::grpc::Status StartAcquisition(::grpc::ServerContext* /*context*/, const ::camaramodule::Empty* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
+    ::grpc::Status StartAcquisition(::grpc::ServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
@@ -900,7 +1122,7 @@ class CameraControl final {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable synchronous version of this method
-    ::grpc::Status StopAcquisition(::grpc::ServerContext* /*context*/, const ::camaramodule::Empty* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
+    ::grpc::Status StopAcquisition(::grpc::ServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
@@ -952,12 +1174,56 @@ class CameraControl final {
       ::grpc::CallbackServerContext* /*context*/, const ::grpc::ByteBuffer* /*request*/, ::grpc::ByteBuffer* /*response*/)  { return nullptr; }
   };
   template <class BaseClass>
+  class WithRawCallbackMethod_SetSaveDirectory : public BaseClass {
+   private:
+    void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
+   public:
+    WithRawCallbackMethod_SetSaveDirectory() {
+      ::grpc::Service::MarkMethodRawCallback(5,
+          new ::grpc::internal::CallbackUnaryHandler< ::grpc::ByteBuffer, ::grpc::ByteBuffer>(
+            [this](
+                   ::grpc::CallbackServerContext* context, const ::grpc::ByteBuffer* request, ::grpc::ByteBuffer* response) { return this->SetSaveDirectory(context, request, response); }));
+    }
+    ~WithRawCallbackMethod_SetSaveDirectory() override {
+      BaseClassMustBeDerivedFromService(this);
+    }
+    // disable synchronous version of this method
+    ::grpc::Status SetSaveDirectory(::grpc::ServerContext* /*context*/, const ::camaramodule::SaveDirectoryRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
+      abort();
+      return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
+    }
+    virtual ::grpc::ServerUnaryReactor* SetSaveDirectory(
+      ::grpc::CallbackServerContext* /*context*/, const ::grpc::ByteBuffer* /*request*/, ::grpc::ByteBuffer* /*response*/)  { return nullptr; }
+  };
+  template <class BaseClass>
+  class WithRawCallbackMethod_GetCameraInfo : public BaseClass {
+   private:
+    void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
+   public:
+    WithRawCallbackMethod_GetCameraInfo() {
+      ::grpc::Service::MarkMethodRawCallback(6,
+          new ::grpc::internal::CallbackUnaryHandler< ::grpc::ByteBuffer, ::grpc::ByteBuffer>(
+            [this](
+                   ::grpc::CallbackServerContext* context, const ::grpc::ByteBuffer* request, ::grpc::ByteBuffer* response) { return this->GetCameraInfo(context, request, response); }));
+    }
+    ~WithRawCallbackMethod_GetCameraInfo() override {
+      BaseClassMustBeDerivedFromService(this);
+    }
+    // disable synchronous version of this method
+    ::grpc::Status GetCameraInfo(::grpc::ServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CameraState* /*response*/) override {
+      abort();
+      return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
+    }
+    virtual ::grpc::ServerUnaryReactor* GetCameraInfo(
+      ::grpc::CallbackServerContext* /*context*/, const ::grpc::ByteBuffer* /*request*/, ::grpc::ByteBuffer* /*response*/)  { return nullptr; }
+  };
+  template <class BaseClass>
   class WithRawCallbackMethod_GetLatestImageFrame : public BaseClass {
    private:
     void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
    public:
     WithRawCallbackMethod_GetLatestImageFrame() {
-      ::grpc::Service::MarkMethodRawCallback(5,
+      ::grpc::Service::MarkMethodRawCallback(7,
           new ::grpc::internal::CallbackUnaryHandler< ::grpc::ByteBuffer, ::grpc::ByteBuffer>(
             [this](
                    ::grpc::CallbackServerContext* context, const ::grpc::ByteBuffer* request, ::grpc::ByteBuffer* response) { return this->GetLatestImageFrame(context, request, response); }));
@@ -979,7 +1245,7 @@ class CameraControl final {
     void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
    public:
     WithRawCallbackMethod_ReleaseImageFrame() {
-      ::grpc::Service::MarkMethodRawCallback(6,
+      ::grpc::Service::MarkMethodRawCallback(8,
           new ::grpc::internal::CallbackUnaryHandler< ::grpc::ByteBuffer, ::grpc::ByteBuffer>(
             [this](
                    ::grpc::CallbackServerContext* context, const ::grpc::ByteBuffer* request, ::grpc::ByteBuffer* response) { return this->ReleaseImageFrame(context, request, response); }));
@@ -1030,10 +1296,10 @@ class CameraControl final {
     WithStreamedUnaryMethod_StartAcquisition() {
       ::grpc::Service::MarkMethodStreamed(1,
         new ::grpc::internal::StreamedUnaryHandler<
-          ::camaramodule::Empty, ::camaramodule::CommandStatus>(
+          ::camaramodule::CameraRequest, ::camaramodule::CommandStatus>(
             [this](::grpc::ServerContext* context,
                    ::grpc::ServerUnaryStreamer<
-                     ::camaramodule::Empty, ::camaramodule::CommandStatus>* streamer) {
+                     ::camaramodule::CameraRequest, ::camaramodule::CommandStatus>* streamer) {
                        return this->StreamedStartAcquisition(context,
                          streamer);
                   }));
@@ -1042,12 +1308,12 @@ class CameraControl final {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable regular version of this method
-    ::grpc::Status StartAcquisition(::grpc::ServerContext* /*context*/, const ::camaramodule::Empty* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
+    ::grpc::Status StartAcquisition(::grpc::ServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
     // replace default version of method with streamed unary
-    virtual ::grpc::Status StreamedStartAcquisition(::grpc::ServerContext* context, ::grpc::ServerUnaryStreamer< ::camaramodule::Empty,::camaramodule::CommandStatus>* server_unary_streamer) = 0;
+    virtual ::grpc::Status StreamedStartAcquisition(::grpc::ServerContext* context, ::grpc::ServerUnaryStreamer< ::camaramodule::CameraRequest,::camaramodule::CommandStatus>* server_unary_streamer) = 0;
   };
   template <class BaseClass>
   class WithStreamedUnaryMethod_StopAcquisition : public BaseClass {
@@ -1057,10 +1323,10 @@ class CameraControl final {
     WithStreamedUnaryMethod_StopAcquisition() {
       ::grpc::Service::MarkMethodStreamed(2,
         new ::grpc::internal::StreamedUnaryHandler<
-          ::camaramodule::Empty, ::camaramodule::CommandStatus>(
+          ::camaramodule::CameraRequest, ::camaramodule::CommandStatus>(
             [this](::grpc::ServerContext* context,
                    ::grpc::ServerUnaryStreamer<
-                     ::camaramodule::Empty, ::camaramodule::CommandStatus>* streamer) {
+                     ::camaramodule::CameraRequest, ::camaramodule::CommandStatus>* streamer) {
                        return this->StreamedStopAcquisition(context,
                          streamer);
                   }));
@@ -1069,12 +1335,12 @@ class CameraControl final {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable regular version of this method
-    ::grpc::Status StopAcquisition(::grpc::ServerContext* /*context*/, const ::camaramodule::Empty* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
+    ::grpc::Status StopAcquisition(::grpc::ServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
     // replace default version of method with streamed unary
-    virtual ::grpc::Status StreamedStopAcquisition(::grpc::ServerContext* context, ::grpc::ServerUnaryStreamer< ::camaramodule::Empty,::camaramodule::CommandStatus>* server_unary_streamer) = 0;
+    virtual ::grpc::Status StreamedStopAcquisition(::grpc::ServerContext* context, ::grpc::ServerUnaryStreamer< ::camaramodule::CameraRequest,::camaramodule::CommandStatus>* server_unary_streamer) = 0;
   };
   template <class BaseClass>
   class WithStreamedUnaryMethod_SetParameter : public BaseClass {
@@ -1131,12 +1397,66 @@ class CameraControl final {
     virtual ::grpc::Status StreamedTriggerDiskSave(::grpc::ServerContext* context, ::grpc::ServerUnaryStreamer< ::camaramodule::Empty,::camaramodule::CommandStatus>* server_unary_streamer) = 0;
   };
   template <class BaseClass>
+  class WithStreamedUnaryMethod_SetSaveDirectory : public BaseClass {
+   private:
+    void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
+   public:
+    WithStreamedUnaryMethod_SetSaveDirectory() {
+      ::grpc::Service::MarkMethodStreamed(5,
+        new ::grpc::internal::StreamedUnaryHandler<
+          ::camaramodule::SaveDirectoryRequest, ::camaramodule::CommandStatus>(
+            [this](::grpc::ServerContext* context,
+                   ::grpc::ServerUnaryStreamer<
+                     ::camaramodule::SaveDirectoryRequest, ::camaramodule::CommandStatus>* streamer) {
+                       return this->StreamedSetSaveDirectory(context,
+                         streamer);
+                  }));
+    }
+    ~WithStreamedUnaryMethod_SetSaveDirectory() override {
+      BaseClassMustBeDerivedFromService(this);
+    }
+    // disable regular version of this method
+    ::grpc::Status SetSaveDirectory(::grpc::ServerContext* /*context*/, const ::camaramodule::SaveDirectoryRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
+      abort();
+      return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
+    }
+    // replace default version of method with streamed unary
+    virtual ::grpc::Status StreamedSetSaveDirectory(::grpc::ServerContext* context, ::grpc::ServerUnaryStreamer< ::camaramodule::SaveDirectoryRequest,::camaramodule::CommandStatus>* server_unary_streamer) = 0;
+  };
+  template <class BaseClass>
+  class WithStreamedUnaryMethod_GetCameraInfo : public BaseClass {
+   private:
+    void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
+   public:
+    WithStreamedUnaryMethod_GetCameraInfo() {
+      ::grpc::Service::MarkMethodStreamed(6,
+        new ::grpc::internal::StreamedUnaryHandler<
+          ::camaramodule::CameraRequest, ::camaramodule::CameraState>(
+            [this](::grpc::ServerContext* context,
+                   ::grpc::ServerUnaryStreamer<
+                     ::camaramodule::CameraRequest, ::camaramodule::CameraState>* streamer) {
+                       return this->StreamedGetCameraInfo(context,
+                         streamer);
+                  }));
+    }
+    ~WithStreamedUnaryMethod_GetCameraInfo() override {
+      BaseClassMustBeDerivedFromService(this);
+    }
+    // disable regular version of this method
+    ::grpc::Status GetCameraInfo(::grpc::ServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CameraState* /*response*/) override {
+      abort();
+      return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
+    }
+    // replace default version of method with streamed unary
+    virtual ::grpc::Status StreamedGetCameraInfo(::grpc::ServerContext* context, ::grpc::ServerUnaryStreamer< ::camaramodule::CameraRequest,::camaramodule::CameraState>* server_unary_streamer) = 0;
+  };
+  template <class BaseClass>
   class WithStreamedUnaryMethod_GetLatestImageFrame : public BaseClass {
    private:
     void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
    public:
     WithStreamedUnaryMethod_GetLatestImageFrame() {
-      ::grpc::Service::MarkMethodStreamed(5,
+      ::grpc::Service::MarkMethodStreamed(7,
         new ::grpc::internal::StreamedUnaryHandler<
           ::camaramodule::FrameRequest, ::camaramodule::FrameInfo>(
             [this](::grpc::ServerContext* context,
@@ -1163,7 +1483,7 @@ class CameraControl final {
     void BaseClassMustBeDerivedFromService(const Service* /*service*/) {}
    public:
     WithStreamedUnaryMethod_ReleaseImageFrame() {
-      ::grpc::Service::MarkMethodStreamed(6,
+      ::grpc::Service::MarkMethodStreamed(8,
         new ::grpc::internal::StreamedUnaryHandler<
           ::camaramodule::ReleaseRequest, ::camaramodule::CommandStatus>(
             [this](::grpc::ServerContext* context,
@@ -1184,9 +1504,9 @@ class CameraControl final {
     // replace default version of method with streamed unary
     virtual ::grpc::Status StreamedReleaseImageFrame(::grpc::ServerContext* context, ::grpc::ServerUnaryStreamer< ::camaramodule::ReleaseRequest,::camaramodule::CommandStatus>* server_unary_streamer) = 0;
   };
-  typedef WithStreamedUnaryMethod_GetSystemState<WithStreamedUnaryMethod_StartAcquisition<WithStreamedUnaryMethod_StopAcquisition<WithStreamedUnaryMethod_SetParameter<WithStreamedUnaryMethod_TriggerDiskSave<WithStreamedUnaryMethod_GetLatestImageFrame<WithStreamedUnaryMethod_ReleaseImageFrame<Service > > > > > > > StreamedUnaryService;
+  typedef WithStreamedUnaryMethod_GetSystemState<WithStreamedUnaryMethod_StartAcquisition<WithStreamedUnaryMethod_StopAcquisition<WithStreamedUnaryMethod_SetParameter<WithStreamedUnaryMethod_TriggerDiskSave<WithStreamedUnaryMethod_SetSaveDirectory<WithStreamedUnaryMethod_GetCameraInfo<WithStreamedUnaryMethod_GetLatestImageFrame<WithStreamedUnaryMethod_ReleaseImageFrame<Service > > > > > > > > > StreamedUnaryService;
   typedef Service SplitStreamedService;
-  typedef WithStreamedUnaryMethod_GetSystemState<WithStreamedUnaryMethod_StartAcquisition<WithStreamedUnaryMethod_StopAcquisition<WithStreamedUnaryMethod_SetParameter<WithStreamedUnaryMethod_TriggerDiskSave<WithStreamedUnaryMethod_GetLatestImageFrame<WithStreamedUnaryMethod_ReleaseImageFrame<Service > > > > > > > StreamedService;
+  typedef WithStreamedUnaryMethod_GetSystemState<WithStreamedUnaryMethod_StartAcquisition<WithStreamedUnaryMethod_StopAcquisition<WithStreamedUnaryMethod_SetParameter<WithStreamedUnaryMethod_TriggerDiskSave<WithStreamedUnaryMethod_SetSaveDirectory<WithStreamedUnaryMethod_GetCameraInfo<WithStreamedUnaryMethod_GetLatestImageFrame<WithStreamedUnaryMethod_ReleaseImageFrame<Service > > > > > > > > > StreamedService;
 };
 
 }  // namespace camaramodule
