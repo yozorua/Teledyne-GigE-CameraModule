@@ -137,12 +137,15 @@ static void PrintShmState() {
         std::cout << "[cam" << c << "]=" << hdr->latest_buffer_per_camera[c].load() << ' ';
     std::cout << '\n';
 
-    std::cout << "  [SHM] Buffer states (refcount / camera):\n        ";
+    std::cout << "  [SHM] Buffer states (refcount / camera / dims):\n        ";
     for (int i = 0; i < hdr->pool_size; ++i) {
         const int32_t rc  = hdr->reference_counts[i].load();
         const int32_t cam = hdr->buffer_camera_id[i];
-        std::cout << "[" << i << "]rc=" << rc << "/c" << cam << "  ";
-        if ((i + 1) % 5 == 0) std::cout << "\n        ";
+        const int32_t bw  = hdr->buffer_width[i];
+        const int32_t bh  = hdr->buffer_height[i];
+        std::cout << "[" << i << "]rc=" << rc << "/c" << cam
+                  << "/" << bw << "x" << bh << "  ";
+        if ((i + 1) % 4 == 0) std::cout << "\n        ";
     }
     std::cout << '\n';
 }
@@ -170,9 +173,7 @@ public:
         auto st = stub_->GetSystemState(&ctx, req, &resp);
         if (st.ok()) {
             std::cout << "  UP  —  status=" << resp.status()
-                      << "  cameras=" << resp.connected_cameras()
-                      << "  fps=" << std::fixed << std::setprecision(1)
-                      << resp.current_fps() << '\n';
+                      << "  camera count=" << resp.connected_cameras() << '\n';
         } else {
             std::cout << "  DOWN (code=" << static_cast<int>(st.error_code())
                       << "): " << st.error_message() << '\n';
@@ -185,10 +186,8 @@ public:
         grpc::ClientContext       ctx;
         auto st = stub_->GetSystemState(&ctx, req, &resp);
         if (!st.ok()) { PrintRpcError(st); return; }
-        std::cout << "  status   : " << resp.status()            << '\n'
-                  << "  cameras  : " << resp.connected_cameras() << '\n'
-                  << "  fps      : " << std::fixed << std::setprecision(1)
-                                     << resp.current_fps()       << '\n';
+        std::cout << "  status       : " << resp.status()            << '\n'
+                  << "  camera count : " << resp.connected_cameras() << '\n';
     }
 
     void StartAcquisition(int32_t camera_id = -1) {
@@ -233,10 +232,11 @@ public:
         PrintStatus(resp);
     }
 
-    void TriggerDiskSave() {
-        camaramodule::Empty         req;
-        camaramodule::CommandStatus resp;
-        grpc::ClientContext         ctx;
+    void TriggerDiskSave(int32_t camera_id = -1) {
+        camaramodule::CameraRequest  req;
+        camaramodule::CommandStatus  resp;
+        grpc::ClientContext          ctx;
+        req.set_camera_id(camera_id);
         auto st = stub_->TriggerDiskSave(&ctx, req, &resp);
         if (!st.ok()) { PrintRpcError(st); return; }
         PrintStatus(resp);
@@ -337,7 +337,12 @@ private:
                   << "  ROI offset : " << s.offset_x() << ", " << s.offset_y()                    << '\n'
                   << "  binning    : " << s.binning_h() << "x" << s.binning_v()                   << '\n'
                   << "  exposure   : " << s.exposure_us() << " us\n"
-                  << "  gain       : " << s.gain_db()     << " dB\n";
+                  << "  gain       : " << s.gain_db()     << " dB\n"
+                  << "  gamma      : " << s.gamma()       << '\n'
+                  << "  black lvl  : " << s.black_level() << '\n'
+                  << "  frame rate : " << (s.frame_rate() > 0.0f
+                                            ? std::to_string(s.frame_rate()) + " fps"
+                                            : "n/a (node unavailable)") << '\n';
     }
 
     std::unique_ptr<camaramodule::CameraControl::Stub> stub_;
@@ -368,7 +373,7 @@ Parameter control:
                                         set -1 Width 0 1920
 
 Disk save:
-  save                          Flag next frame for disk write
+  save [cam_id]                 Flag next JPEG frame for disk write (-1 or omit = any camera)
   savedir <path>                Change save directory at runtime
 
 Frame inspection:
@@ -410,7 +415,12 @@ int main(int argc, char* argv[]) {
         if (cmd == "help")                  { PrintHelp();                continue; }
         if (cmd == "health")                { client.Health();            continue; }
         if (cmd == "state")                 { client.GetSystemState();    continue; }
-        if (cmd == "save")                  { client.TriggerDiskSave();   continue; }
+        if (cmd == "save") {
+            int32_t cam_id = -1;
+            ss >> cam_id;  // optional; stays -1 (any camera) if not provided
+            client.TriggerDiskSave(cam_id);
+            continue;
+        }
         if (cmd == "shm")                   { PrintShmState();            continue; }
         if (cmd == "cameras")               { client.ListCameras();       continue; }
 

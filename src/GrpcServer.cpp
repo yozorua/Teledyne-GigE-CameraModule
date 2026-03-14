@@ -85,12 +85,15 @@ grpc::Status CameraControlServiceImpl::SetParameter(
 
 grpc::Status CameraControlServiceImpl::TriggerDiskSave(
     grpc::ServerContext*,
-    const camaramodule::Empty*,
-    camaramodule::CommandStatus* resp)
+    const camaramodule::CameraRequest* req,
+    camaramodule::CommandStatus*       resp)
 {
-    cam_mgr_.TriggerDiskSave();
+    const int32_t cam_id = req->camera_id();
+    cam_mgr_.TriggerDiskSave(cam_id);
+    const std::string target = (cam_id == -1) ? "any camera"
+                                              : "camera " + std::to_string(cam_id);
     resp->set_success(true);
-    resp->set_message("Disk save queued for next captured frame.");
+    resp->set_message("Disk save queued for next frame from " + target + ".");
     return grpc::Status::OK;
 }
 
@@ -136,6 +139,9 @@ grpc::Status CameraControlServiceImpl::GetCameraInfo(
     resp->set_gain_db(info.gain_db);
     resp->set_fps(info.fps);
     resp->set_acquiring(info.acquiring);
+    resp->set_gamma(info.gamma);
+    resp->set_black_level(info.black_level);
+    resp->set_frame_rate(info.frame_rate);
     return grpc::Status::OK;
 }
 

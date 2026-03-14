@@ -68,13 +68,14 @@ class CameraControl final {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>>(PrepareAsyncSetParameterRaw(context, request, cq));
     }
     // ── Disk save ─────────────────────────────────────────────────────────────
-    virtual ::grpc::Status TriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::camaramodule::CommandStatus* response) = 0;
-    std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>> AsyncTriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) {
+    virtual ::grpc::Status TriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::camaramodule::CommandStatus* response) = 0;
+    std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>> AsyncTriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>>(AsyncTriggerDiskSaveRaw(context, request, cq));
     }
-    std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>> PrepareAsyncTriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) {
+    std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>> PrepareAsyncTriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>>(PrepareAsyncTriggerDiskSaveRaw(context, request, cq));
     }
+    // camera_id: -1 = any
     virtual ::grpc::Status SetSaveDirectory(::grpc::ClientContext* context, const ::camaramodule::SaveDirectoryRequest& request, ::camaramodule::CommandStatus* response) = 0;
     std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>> AsyncSetSaveDirectory(::grpc::ClientContext* context, const ::camaramodule::SaveDirectoryRequest& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>>(AsyncSetSaveDirectoryRaw(context, request, cq));
@@ -120,8 +121,9 @@ class CameraControl final {
       virtual void SetParameter(::grpc::ClientContext* context, const ::camaramodule::ParameterRequest* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)>) = 0;
       virtual void SetParameter(::grpc::ClientContext* context, const ::camaramodule::ParameterRequest* request, ::camaramodule::CommandStatus* response, ::grpc::ClientUnaryReactor* reactor) = 0;
       // ── Disk save ─────────────────────────────────────────────────────────────
-      virtual void TriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)>) = 0;
-      virtual void TriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response, ::grpc::ClientUnaryReactor* reactor) = 0;
+      virtual void TriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)>) = 0;
+      virtual void TriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CommandStatus* response, ::grpc::ClientUnaryReactor* reactor) = 0;
+      // camera_id: -1 = any
       virtual void SetSaveDirectory(::grpc::ClientContext* context, const ::camaramodule::SaveDirectoryRequest* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)>) = 0;
       virtual void SetSaveDirectory(::grpc::ClientContext* context, const ::camaramodule::SaveDirectoryRequest* request, ::camaramodule::CommandStatus* response, ::grpc::ClientUnaryReactor* reactor) = 0;
       // ── Per-camera state ──────────────────────────────────────────────────────
@@ -145,8 +147,8 @@ class CameraControl final {
     virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>* PrepareAsyncStopAcquisitionRaw(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) = 0;
     virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>* AsyncSetParameterRaw(::grpc::ClientContext* context, const ::camaramodule::ParameterRequest& request, ::grpc::CompletionQueue* cq) = 0;
     virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>* PrepareAsyncSetParameterRaw(::grpc::ClientContext* context, const ::camaramodule::ParameterRequest& request, ::grpc::CompletionQueue* cq) = 0;
-    virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>* AsyncTriggerDiskSaveRaw(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) = 0;
-    virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>* PrepareAsyncTriggerDiskSaveRaw(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) = 0;
+    virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>* AsyncTriggerDiskSaveRaw(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) = 0;
+    virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>* PrepareAsyncTriggerDiskSaveRaw(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) = 0;
     virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>* AsyncSetSaveDirectoryRaw(::grpc::ClientContext* context, const ::camaramodule::SaveDirectoryRequest& request, ::grpc::CompletionQueue* cq) = 0;
     virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CommandStatus>* PrepareAsyncSetSaveDirectoryRaw(::grpc::ClientContext* context, const ::camaramodule::SaveDirectoryRequest& request, ::grpc::CompletionQueue* cq) = 0;
     virtual ::grpc::ClientAsyncResponseReaderInterface< ::camaramodule::CameraState>* AsyncGetCameraInfoRaw(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) = 0;
@@ -187,11 +189,11 @@ class CameraControl final {
     std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>> PrepareAsyncSetParameter(::grpc::ClientContext* context, const ::camaramodule::ParameterRequest& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>>(PrepareAsyncSetParameterRaw(context, request, cq));
     }
-    ::grpc::Status TriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::camaramodule::CommandStatus* response) override;
-    std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>> AsyncTriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) {
+    ::grpc::Status TriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::camaramodule::CommandStatus* response) override;
+    std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>> AsyncTriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>>(AsyncTriggerDiskSaveRaw(context, request, cq));
     }
-    std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>> PrepareAsyncTriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) {
+    std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>> PrepareAsyncTriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>>(PrepareAsyncTriggerDiskSaveRaw(context, request, cq));
     }
     ::grpc::Status SetSaveDirectory(::grpc::ClientContext* context, const ::camaramodule::SaveDirectoryRequest& request, ::camaramodule::CommandStatus* response) override;
@@ -233,8 +235,8 @@ class CameraControl final {
       void StopAcquisition(::grpc::ClientContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CommandStatus* response, ::grpc::ClientUnaryReactor* reactor) override;
       void SetParameter(::grpc::ClientContext* context, const ::camaramodule::ParameterRequest* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)>) override;
       void SetParameter(::grpc::ClientContext* context, const ::camaramodule::ParameterRequest* request, ::camaramodule::CommandStatus* response, ::grpc::ClientUnaryReactor* reactor) override;
-      void TriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)>) override;
-      void TriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response, ::grpc::ClientUnaryReactor* reactor) override;
+      void TriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)>) override;
+      void TriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CommandStatus* response, ::grpc::ClientUnaryReactor* reactor) override;
       void SetSaveDirectory(::grpc::ClientContext* context, const ::camaramodule::SaveDirectoryRequest* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)>) override;
       void SetSaveDirectory(::grpc::ClientContext* context, const ::camaramodule::SaveDirectoryRequest* request, ::camaramodule::CommandStatus* response, ::grpc::ClientUnaryReactor* reactor) override;
       void GetCameraInfo(::grpc::ClientContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CameraState* response, std::function<void(::grpc::Status)>) override;
@@ -262,8 +264,8 @@ class CameraControl final {
     ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* PrepareAsyncStopAcquisitionRaw(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) override;
     ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* AsyncSetParameterRaw(::grpc::ClientContext* context, const ::camaramodule::ParameterRequest& request, ::grpc::CompletionQueue* cq) override;
     ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* PrepareAsyncSetParameterRaw(::grpc::ClientContext* context, const ::camaramodule::ParameterRequest& request, ::grpc::CompletionQueue* cq) override;
-    ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* AsyncTriggerDiskSaveRaw(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) override;
-    ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* PrepareAsyncTriggerDiskSaveRaw(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) override;
+    ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* AsyncTriggerDiskSaveRaw(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) override;
+    ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* PrepareAsyncTriggerDiskSaveRaw(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) override;
     ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* AsyncSetSaveDirectoryRaw(::grpc::ClientContext* context, const ::camaramodule::SaveDirectoryRequest& request, ::grpc::CompletionQueue* cq) override;
     ::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* PrepareAsyncSetSaveDirectoryRaw(::grpc::ClientContext* context, const ::camaramodule::SaveDirectoryRequest& request, ::grpc::CompletionQueue* cq) override;
     ::grpc::ClientAsyncResponseReader< ::camaramodule::CameraState>* AsyncGetCameraInfoRaw(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) override;
@@ -296,7 +298,8 @@ class CameraControl final {
     // ── Parameter control  (camera_id = -1 = all cameras) ────────────────────
     virtual ::grpc::Status SetParameter(::grpc::ServerContext* context, const ::camaramodule::ParameterRequest* request, ::camaramodule::CommandStatus* response);
     // ── Disk save ─────────────────────────────────────────────────────────────
-    virtual ::grpc::Status TriggerDiskSave(::grpc::ServerContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response);
+    virtual ::grpc::Status TriggerDiskSave(::grpc::ServerContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CommandStatus* response);
+    // camera_id: -1 = any
     virtual ::grpc::Status SetSaveDirectory(::grpc::ServerContext* context, const ::camaramodule::SaveDirectoryRequest* request, ::camaramodule::CommandStatus* response);
     // ── Per-camera state ──────────────────────────────────────────────────────
     virtual ::grpc::Status GetCameraInfo(::grpc::ServerContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CameraState* response);
@@ -396,11 +399,11 @@ class CameraControl final {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable synchronous version of this method
-    ::grpc::Status TriggerDiskSave(::grpc::ServerContext* /*context*/, const ::camaramodule::Empty* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
+    ::grpc::Status TriggerDiskSave(::grpc::ServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
-    void RequestTriggerDiskSave(::grpc::ServerContext* context, ::camaramodule::Empty* request, ::grpc::ServerAsyncResponseWriter< ::camaramodule::CommandStatus>* response, ::grpc::CompletionQueue* new_call_cq, ::grpc::ServerCompletionQueue* notification_cq, void *tag) {
+    void RequestTriggerDiskSave(::grpc::ServerContext* context, ::camaramodule::CameraRequest* request, ::grpc::ServerAsyncResponseWriter< ::camaramodule::CommandStatus>* response, ::grpc::CompletionQueue* new_call_cq, ::grpc::ServerCompletionQueue* notification_cq, void *tag) {
       ::grpc::Service::RequestAsyncUnary(4, context, request, response, new_call_cq, notification_cq, tag);
     }
   };
@@ -600,25 +603,25 @@ class CameraControl final {
    public:
     WithCallbackMethod_TriggerDiskSave() {
       ::grpc::Service::MarkMethodCallback(4,
-          new ::grpc::internal::CallbackUnaryHandler< ::camaramodule::Empty, ::camaramodule::CommandStatus>(
+          new ::grpc::internal::CallbackUnaryHandler< ::camaramodule::CameraRequest, ::camaramodule::CommandStatus>(
             [this](
-                   ::grpc::CallbackServerContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response) { return this->TriggerDiskSave(context, request, response); }));}
+                   ::grpc::CallbackServerContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CommandStatus* response) { return this->TriggerDiskSave(context, request, response); }));}
     void SetMessageAllocatorFor_TriggerDiskSave(
-        ::grpc::MessageAllocator< ::camaramodule::Empty, ::camaramodule::CommandStatus>* allocator) {
+        ::grpc::MessageAllocator< ::camaramodule::CameraRequest, ::camaramodule::CommandStatus>* allocator) {
       ::grpc::internal::MethodHandler* const handler = ::grpc::Service::GetHandler(4);
-      static_cast<::grpc::internal::CallbackUnaryHandler< ::camaramodule::Empty, ::camaramodule::CommandStatus>*>(handler)
+      static_cast<::grpc::internal::CallbackUnaryHandler< ::camaramodule::CameraRequest, ::camaramodule::CommandStatus>*>(handler)
               ->SetMessageAllocator(allocator);
     }
     ~WithCallbackMethod_TriggerDiskSave() override {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable synchronous version of this method
-    ::grpc::Status TriggerDiskSave(::grpc::ServerContext* /*context*/, const ::camaramodule::Empty* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
+    ::grpc::Status TriggerDiskSave(::grpc::ServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
     virtual ::grpc::ServerUnaryReactor* TriggerDiskSave(
-      ::grpc::CallbackServerContext* /*context*/, const ::camaramodule::Empty* /*request*/, ::camaramodule::CommandStatus* /*response*/)  { return nullptr; }
+      ::grpc::CallbackServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/)  { return nullptr; }
   };
   template <class BaseClass>
   class WithCallbackMethod_SetSaveDirectory : public BaseClass {
@@ -810,7 +813,7 @@ class CameraControl final {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable synchronous version of this method
-    ::grpc::Status TriggerDiskSave(::grpc::ServerContext* /*context*/, const ::camaramodule::Empty* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
+    ::grpc::Status TriggerDiskSave(::grpc::ServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
@@ -975,7 +978,7 @@ class CameraControl final {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable synchronous version of this method
-    ::grpc::Status TriggerDiskSave(::grpc::ServerContext* /*context*/, const ::camaramodule::Empty* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
+    ::grpc::Status TriggerDiskSave(::grpc::ServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
@@ -1166,7 +1169,7 @@ class CameraControl final {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable synchronous version of this method
-    ::grpc::Status TriggerDiskSave(::grpc::ServerContext* /*context*/, const ::camaramodule::Empty* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
+    ::grpc::Status TriggerDiskSave(::grpc::ServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
@@ -1377,10 +1380,10 @@ class CameraControl final {
     WithStreamedUnaryMethod_TriggerDiskSave() {
       ::grpc::Service::MarkMethodStreamed(4,
         new ::grpc::internal::StreamedUnaryHandler<
-          ::camaramodule::Empty, ::camaramodule::CommandStatus>(
+          ::camaramodule::CameraRequest, ::camaramodule::CommandStatus>(
             [this](::grpc::ServerContext* context,
                    ::grpc::ServerUnaryStreamer<
-                     ::camaramodule::Empty, ::camaramodule::CommandStatus>* streamer) {
+                     ::camaramodule::CameraRequest, ::camaramodule::CommandStatus>* streamer) {
                        return this->StreamedTriggerDiskSave(context,
                          streamer);
                   }));
@@ -1389,12 +1392,12 @@ class CameraControl final {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable regular version of this method
-    ::grpc::Status TriggerDiskSave(::grpc::ServerContext* /*context*/, const ::camaramodule::Empty* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
+    ::grpc::Status TriggerDiskSave(::grpc::ServerContext* /*context*/, const ::camaramodule::CameraRequest* /*request*/, ::camaramodule::CommandStatus* /*response*/) override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
     // replace default version of method with streamed unary
-    virtual ::grpc::Status StreamedTriggerDiskSave(::grpc::ServerContext* context, ::grpc::ServerUnaryStreamer< ::camaramodule::Empty,::camaramodule::CommandStatus>* server_unary_streamer) = 0;
+    virtual ::grpc::Status StreamedTriggerDiskSave(::grpc::ServerContext* context, ::grpc::ServerUnaryStreamer< ::camaramodule::CameraRequest,::camaramodule::CommandStatus>* server_unary_streamer) = 0;
   };
   template <class BaseClass>
   class WithStreamedUnaryMethod_SetSaveDirectory : public BaseClass {

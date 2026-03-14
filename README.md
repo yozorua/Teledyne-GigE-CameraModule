@@ -256,8 +256,16 @@ The producer uses CAS `0 → -1` to claim a buffer, copies the image, then store
 
 ### GigE Bandwidth Management
 
-- `DeviceLinkThroughputLimit` is set per camera to `125 MB/s ÷ camera_count`.
-- `GevSCPSPacketSize` is set to 9 000 bytes (jumbo frames).
+The module targets **10 GigE** (10 Gbit/s = 1 250 MB/s) links.  On startup it applies two settings to every camera:
+
+| GenICam node | Value | Reason |
+|---|---|---|
+| `GevSCPSPacketSize` | 9 000 bytes | Jumbo frames — reduces per-packet CPU overhead at high frame rates |
+| `DeviceLinkThroughputLimit` | `1 250 000 000 ÷ camera_count` bytes/s | Divides the 10 Gbit/s budget equally so all cameras share the link without overrunning the NIC |
+
+For a single camera the full 1 250 MB/s is available; with two cameras each gets 625 MB/s, and so on.
+
+> **Using a 1 GigE NIC instead?**  Change the constant `GIGE_MAX_BANDWIDTH_BPS` in `src/SpinnakerCameraManager.cpp` from `1'250'000'000` to `125'000'000` and rebuild.
 
 ---
 

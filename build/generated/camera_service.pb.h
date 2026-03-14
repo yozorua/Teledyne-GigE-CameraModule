@@ -1867,6 +1867,9 @@ class CameraState final : public ::google::protobuf::Message
     kGainDbFieldNumber = 12,
     kFpsFieldNumber = 13,
     kAcquiringFieldNumber = 14,
+    kGammaFieldNumber = 15,
+    kBlackLevelFieldNumber = 16,
+    kFrameRateFieldNumber = 17,
   };
   // string model_name = 2;
   void clear_model_name() ;
@@ -2023,12 +2026,42 @@ class CameraState final : public ::google::protobuf::Message
   void _internal_set_acquiring(bool value);
 
   public:
+  // float gamma = 15;
+  void clear_gamma() ;
+  float gamma() const;
+  void set_gamma(float value);
+
+  private:
+  float _internal_gamma() const;
+  void _internal_set_gamma(float value);
+
+  public:
+  // float black_level = 16;
+  void clear_black_level() ;
+  float black_level() const;
+  void set_black_level(float value);
+
+  private:
+  float _internal_black_level() const;
+  void _internal_set_black_level(float value);
+
+  public:
+  // float frame_rate = 17;
+  void clear_frame_rate() ;
+  float frame_rate() const;
+  void set_frame_rate(float value);
+
+  private:
+  float _internal_frame_rate() const;
+  void _internal_set_frame_rate(float value);
+
+  public:
   // @@protoc_insertion_point(class_scope:camaramodule.CameraState)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
-  static const ::google::protobuf::internal::TcParseTable<4, 14,
-                                   0, 67,
+  static const ::google::protobuf::internal::TcParseTable<5, 17,
+                                   0, 75,
                                    2>
       _table_;
 
@@ -2063,6 +2096,9 @@ class CameraState final : public ::google::protobuf::Message
     float gain_db_;
     float fps_;
     bool acquiring_;
+    float gamma_;
+    float black_level_;
+    float frame_rate_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -2897,6 +2933,81 @@ inline bool CameraState::_internal_acquiring() const {
 inline void CameraState::_internal_set_acquiring(bool value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.acquiring_ = value;
+}
+
+// float gamma = 15;
+inline void CameraState::clear_gamma() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.gamma_ = 0;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00004000U);
+}
+inline float CameraState::gamma() const {
+  // @@protoc_insertion_point(field_get:camaramodule.CameraState.gamma)
+  return _internal_gamma();
+}
+inline void CameraState::set_gamma(float value) {
+  _internal_set_gamma(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00004000U);
+  // @@protoc_insertion_point(field_set:camaramodule.CameraState.gamma)
+}
+inline float CameraState::_internal_gamma() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.gamma_;
+}
+inline void CameraState::_internal_set_gamma(float value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.gamma_ = value;
+}
+
+// float black_level = 16;
+inline void CameraState::clear_black_level() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.black_level_ = 0;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00008000U);
+}
+inline float CameraState::black_level() const {
+  // @@protoc_insertion_point(field_get:camaramodule.CameraState.black_level)
+  return _internal_black_level();
+}
+inline void CameraState::set_black_level(float value) {
+  _internal_set_black_level(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00008000U);
+  // @@protoc_insertion_point(field_set:camaramodule.CameraState.black_level)
+}
+inline float CameraState::_internal_black_level() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.black_level_;
+}
+inline void CameraState::_internal_set_black_level(float value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.black_level_ = value;
+}
+
+// float frame_rate = 17;
+inline void CameraState::clear_frame_rate() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.frame_rate_ = 0;
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00010000U);
+}
+inline float CameraState::frame_rate() const {
+  // @@protoc_insertion_point(field_get:camaramodule.CameraState.frame_rate)
+  return _internal_frame_rate();
+}
+inline void CameraState::set_frame_rate(float value) {
+  _internal_set_frame_rate(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00010000U);
+  // @@protoc_insertion_point(field_set:camaramodule.CameraState.frame_rate)
+}
+inline float CameraState::_internal_frame_rate() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.frame_rate_;
+}
+inline void CameraState::_internal_set_frame_rate(float value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.frame_rate_ = value;
 }
 
 // -------------------------------------------------------------------

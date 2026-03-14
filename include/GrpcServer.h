@@ -34,9 +34,9 @@ public:
                               const camaramodule::ParameterRequest*  req,
                               camaramodule::CommandStatus*           resp) override;
 
-    grpc::Status TriggerDiskSave(grpc::ServerContext*           ctx,
-                                 const camaramodule::Empty*     req,
-                                 camaramodule::CommandStatus*   resp) override;
+    grpc::Status TriggerDiskSave(grpc::ServerContext*               ctx,
+                                 const camaramodule::CameraRequest* req,
+                                 camaramodule::CommandStatus*       resp) override;
 
     grpc::Status SetSaveDirectory(grpc::ServerContext*                      ctx,
                                   const camaramodule::SaveDirectoryRequest* req,

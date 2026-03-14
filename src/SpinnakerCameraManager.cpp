@@ -9,14 +9,22 @@
 #include <iostream>
 #include <sstream>
 
+// Windows Imaging Component — used by DiskSaveLoop to write JPEG files.
+// These are Windows system libraries; no additional install is required.
+#include <wincodec.h>
+#include <wrl/client.h>   // Microsoft::WRL::ComPtr
+
+// Spinnaker image processor (debayer / pixel-format conversion)
+#include "ImageProcessor.h"
+
 namespace fs = std::filesystem;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Combined GigE link cap: 1 Gbit/s expressed in bytes/s
-static constexpr int64_t  GIGE_MAX_BANDWIDTH_BPS = 125'000'000LL;
+/// Combined 10 GigE link cap: 10 Gbit/s expressed in bytes/s
+static constexpr int64_t  GIGE_MAX_BANDWIDTH_BPS = 1'250'000'000LL;
 
 /// IEEE 802.3 jumbo frame MTU that avoids per-packet overhead
 static constexpr uint32_t JUMBO_PACKET_SIZE = 9000;
@@ -264,16 +272,39 @@ void SpinnakerCameraManager::CameraAcquisitionThread(Spinnaker::CameraPtr camera
         RecordFrameTime(camera_id);
 
         // ── Optional disk save (non-blocking) ─────────────────────────────────
-        if (pending_save_.exchange(false, std::memory_order_acq_rel)) {
-            FrameSnapshot snap;
-            snap.width     = static_cast<uint32_t>(image->GetWidth());
-            snap.height    = static_cast<uint32_t>(image->GetHeight());
-            snap.channels  = 1;  // Mono8; extend here for colour pixel formats
-            snap.camera_id = camera_id;
-            snap.data.resize(src_bytes);
-            std::memcpy(snap.data.data(), image->GetData(), src_bytes);
+        // Claim the pending save if it targets this camera or any camera (-1).
+        int32_t save_req = pending_save_camera_id_.load(std::memory_order_acquire);
+        const bool save_wanted = (save_req != SAVE_IDLE) &&
+                                 (save_req == camera_id || save_req == -1);
+        if (save_wanted &&
+            pending_save_camera_id_.compare_exchange_strong(
+                save_req, SAVE_IDLE,
+                std::memory_order_acq_rel,
+                std::memory_order_relaxed)) {
 
-            // Build filename: frame_cam<N>_<timestamp_ms>.raw
+            FrameSnapshot snap;
+            snap.camera_id = camera_id;
+
+            // Debayer / colour-convert while we still hold the ImagePtr.
+            // ImageProcessor::Convert() handles any source format (Bayer, Mono,
+            // YUV, …) and returns a new heap-allocated ImagePtr — independent of
+            // the camera stream, safe to use after the original is released.
+            // RGB8: R first in memory — matches WIC GUID_WICPixelFormat24bppRGB.
+            Spinnaker::ImageProcessor img_proc;
+            img_proc.SetColorProcessing(
+                Spinnaker::SPINNAKER_COLOR_PROCESSING_ALGORITHM_HQ_LINEAR);
+            Spinnaker::ImagePtr converted =
+                img_proc.Convert(image, Spinnaker::PixelFormat_RGB8);
+
+            snap.width    = static_cast<uint32_t>(converted->GetWidth());
+            snap.height   = static_cast<uint32_t>(converted->GetHeight());
+            snap.channels = 3;
+            const std::size_t conv_bytes = converted->GetImageSize();
+            snap.data.resize(conv_bytes);
+            std::memcpy(snap.data.data(), converted->GetData(), conv_bytes);
+            // converted goes out of scope here; destructor handles cleanup.
+
+            // Build filename: frame_cam<N>_<timestamp_ms>.jpg
             const auto now = std::chrono::system_clock::now();
             const auto ms  = std::chrono::duration_cast<std::chrono::milliseconds>(
                                  now.time_since_epoch()).count();
@@ -285,7 +316,7 @@ void SpinnakerCameraManager::CameraAcquisitionThread(Spinnaker::CameraPtr camera
             }
 
             std::ostringstream ss;
-            ss << save_dir << "/frame_cam" << camera_id << "_" << ms << ".raw";
+            ss << save_dir << "/frame_cam" << camera_id << "_" << ms << ".jpg";
             snap.save_path = ss.str();
 
             {
@@ -321,16 +352,74 @@ void SpinnakerCameraManager::DiskSaveLoop() {
             save_queue_.pop();
         }
 
-        // Raw binary dump.  Extend here to write PNG/TIFF using an image library.
-        if (FILE* fp = std::fopen(snap.save_path.c_str(), "wb")) {
-            std::fwrite(snap.data.data(), 1, snap.data.size(), fp);
-            std::fclose(fp);
+        // Write JPEG via Windows Imaging Component (WIC).
+        // The pixel data in snap.data is already debayered RGB8 (3 channels,
+        // R first) from the conversion done in the acquisition thread.
+        // WIC GUID_WICPixelFormat24bppRGB expects the same R-G-B byte order.
+        [&] {
+            using Microsoft::WRL::ComPtr;
+
+            // COM must be initialised on each thread that uses WIC.
+            const HRESULT hr_init = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+            const bool com_owned  = SUCCEEDED(hr_init);
+
+            auto cleanup_com = [&] { if (com_owned) CoUninitialize(); };
+
+            ComPtr<IWICImagingFactory> factory;
+            if (FAILED(CoCreateInstance(CLSID_WICImagingFactory, nullptr,
+                                        CLSCTX_INPROC_SERVER,
+                                        IID_PPV_ARGS(&factory)))) {
+                std::cerr << "[DiskSave] WIC factory creation failed.\n";
+                cleanup_com();
+                return;
+            }
+
+            ComPtr<IWICStream> wic_stream;
+            factory->CreateStream(&wic_stream);
+
+            // IWICStream::InitializeFromFilename requires a wide-char path.
+            const std::wstring wpath(snap.save_path.begin(), snap.save_path.end());
+            if (FAILED(wic_stream->InitializeFromFilename(wpath.c_str(), GENERIC_WRITE))) {
+                std::cerr << "[DiskSave] Cannot create file: " << snap.save_path << '\n';
+                cleanup_com();
+                return;
+            }
+
+            ComPtr<IWICBitmapEncoder> encoder;
+            factory->CreateEncoder(GUID_ContainerFormatJpeg, nullptr, &encoder);
+            encoder->Initialize(wic_stream.Get(), WICBitmapEncoderNoCache);
+
+            ComPtr<IWICBitmapFrameEncode> frame;
+            ComPtr<IPropertyBag2>         props;
+            encoder->CreateNewFrame(&frame, &props);
+
+            // Set JPEG quality to 95 via IPropertyBag2.
+            PROPBAG2 opt{};
+            opt.pstrName = const_cast<LPOLESTR>(L"ImageQuality");
+            VARIANT val{};
+            val.vt     = VT_R4;
+            val.fltVal = 0.95f;
+            props->Write(1, &opt, &val);
+
+            frame->Initialize(props.Get());
+            frame->SetSize(snap.width, snap.height);
+
+            WICPixelFormatGUID fmt = GUID_WICPixelFormat24bppRGB;
+            frame->SetPixelFormat(&fmt);
+
+            const UINT stride = snap.width * snap.channels;
+            frame->WritePixels(snap.height, stride,
+                               static_cast<UINT>(snap.data.size()),
+                               snap.data.data());
+            frame->Commit();
+            encoder->Commit();
+
             std::cout << "[DiskSave] cam" << snap.camera_id
-                      << " wrote " << snap.data.size()
-                      << " bytes to " << snap.save_path << '\n';
-        } else {
-            std::cerr << "[DiskSave] Failed to open: " << snap.save_path << '\n';
-        }
+                      << "  " << snap.width << "x" << snap.height
+                      << "  RGB  ->  " << snap.save_path << '\n';
+
+            cleanup_com();
+        }();
     }
 }
 
@@ -497,6 +586,9 @@ bool SpinnakerCameraManager::GetCameraInfo(int32_t camera_id, CameraInfo& info) 
 
     info.exposure_us = readFloat("ExposureTime");
     info.gain_db     = readFloat("Gain");
+    info.gamma       = readFloat("Gamma");
+    info.black_level = readFloat("BlackLevel");
+    info.frame_rate  = readFloat("AcquisitionFrameRate");
 
     return true;
 }
@@ -515,12 +607,71 @@ void SpinnakerCameraManager::SetSaveDirectory(const std::string& path) {
 // Misc queries
 // ─────────────────────────────────────────────────────────────────────────────
 
-void SpinnakerCameraManager::TriggerDiskSave() {
-    pending_save_.store(true, std::memory_order_release);
+void SpinnakerCameraManager::TriggerDiskSave(int32_t camera_id) {
+    pending_save_camera_id_.store(camera_id, std::memory_order_release);
 }
 
 int32_t SpinnakerCameraManager::GetConnectedCameraCount() const {
     return static_cast<int32_t>(cameras_.size());
+}
+
+void SpinnakerCameraManager::GetMaxImageDimensions(int32_t& out_width,
+                                                    int32_t& out_height,
+                                                    int32_t  fallback_width,
+                                                    int32_t  fallback_height) {
+    using namespace Spinnaker::GenApi;
+
+    out_width  = 0;
+    out_height = 0;
+
+    for (auto& cam : cameras_) {
+        if (!cam->IsInitialized()) continue;
+
+        INodeMap& nm = cam->GetNodeMap();
+        int32_t   w  = 0;
+        int32_t   h  = 0;
+
+        // Priority 1 — SensorWidth/SensorHeight: physical pixel count of the
+        // imaging sensor, unaffected by ROI or binning settings.
+        {
+            CIntegerPtr pw = nm.GetNode("SensorWidth");
+            CIntegerPtr ph = nm.GetNode("SensorHeight");
+            if (IsAvailable(pw) && IsReadable(pw) &&
+                IsAvailable(ph) && IsReadable(ph)) {
+                w = static_cast<int32_t>(pw->GetValue());
+                h = static_cast<int32_t>(ph->GetValue());
+            }
+        }
+
+        // Priority 2 — WidthMax/HeightMax: maximum addressable resolution for
+        // the current binning setting.  Smaller than SensorWidth if binning>1,
+        // but fine as a fallback.
+        if (w == 0 || h == 0) {
+            CIntegerPtr pw = nm.GetNode("WidthMax");
+            CIntegerPtr ph = nm.GetNode("HeightMax");
+            if (IsAvailable(pw) && IsReadable(pw) &&
+                IsAvailable(ph) && IsReadable(ph)) {
+                w = static_cast<int32_t>(pw->GetValue());
+                h = static_cast<int32_t>(ph->GetValue());
+            }
+        }
+
+        // Priority 3 — current Width/Height (may already have ROI applied,
+        // but better than nothing).
+        if (w == 0 || h == 0) {
+            CIntegerPtr pw = nm.GetNode("Width");
+            CIntegerPtr ph = nm.GetNode("Height");
+            if (IsAvailable(pw) && IsReadable(pw)) w = static_cast<int32_t>(pw->GetValue());
+            if (IsAvailable(ph) && IsReadable(ph)) h = static_cast<int32_t>(ph->GetValue());
+        }
+
+        if (w > 0) out_width  = std::max(out_width,  w);
+        if (h > 0) out_height = std::max(out_height, h);
+    }
+
+    // Apply fallback when no cameras were found or nodes were unavailable.
+    if (out_width  == 0) out_width  = fallback_width;
+    if (out_height == 0) out_height = fallback_height;
 }
 
 float SpinnakerCameraManager::GetCurrentFPS() const {

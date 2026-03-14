@@ -13,12 +13,12 @@
 // Defaults
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Pre-allocated shared memory dimensions.  These must cover the largest image
-// the connected cameras will produce.  Adjust before building if your sensors
-// are larger than 1920×1080 Mono8.
-static constexpr int32_t DEFAULT_WIDTH    = 1920;
-static constexpr int32_t DEFAULT_HEIGHT   = 1080;
-static constexpr int32_t DEFAULT_CHANNELS = 1;      // Mono8
+// Fallback dimensions used only when no cameras are detected at startup.
+// The SHM allocation is otherwise sized to the maximum sensor resolution
+// found across all connected cameras (see step 2 below).
+static constexpr int32_t FALLBACK_WIDTH    = 4096;
+static constexpr int32_t FALLBACK_HEIGHT   = 4096;
+static constexpr int32_t DEFAULT_CHANNELS  = 1;      // Mono8
 
 static constexpr const char* DEFAULT_GRPC_ADDR = "0.0.0.0:50051";
 static constexpr const char* DEFAULT_SAVE_DIR  = ".";
@@ -34,7 +34,7 @@ static BOOL WINAPI ConsoleCtrlHandler(DWORD ctrl_type) {
         ctrl_type == CTRL_CLOSE_EVENT) {
         std::cout << "\n[Main] Shutdown signal received – stopping...\n";
         g_shutdown.store(true, std::memory_order_release);
-        return TRUE; // suppress default handler (which would terminate immediately)
+        return TRUE;
     }
     return FALSE;
 }
@@ -53,26 +53,50 @@ int main(int argc, char* argv[]) {
               << "gRPC address : " << grpc_addr << '\n'
               << "Save dir     : " << save_dir  << '\n';
 
-    // ── 1. Shared memory ──────────────────────────────────────────────────────
-    SharedMemoryManager shm;
-    if (!shm.Initialize(DEFAULT_WIDTH, DEFAULT_HEIGHT, DEFAULT_CHANNELS)) {
+    // ── 1. Spinnaker camera manager ───────────────────────────────────────────
+    // Enumerate cameras and call Init() on each so their GenICam NodeMaps are
+    // accessible.  SHM is not yet allocated — the constructor only stores the
+    // reference; no SHM methods are called until after step 3.
+    SharedMemoryManager    shm;
+    SpinnakerCameraManager cam_mgr(shm);
+
+    if (!cam_mgr.Initialize(save_dir)) {
+        std::cerr << "[Main] FATAL: Failed to initialise Spinnaker.\n";
+        return 1;
+    }
+
+    const int32_t cam_count = cam_mgr.GetConnectedCameraCount();
+    std::cout << "[Main] " << cam_count << " camera(s) found.\n";
+
+    // ── 2. Determine SHM buffer dimensions from actual sensor sizes ───────────
+    // Each slot in the shared pool must be large enough to hold the largest
+    // frame that any connected camera can produce (at full sensor resolution,
+    // before any ROI or binning is applied).
+    int32_t shm_width  = 0;
+    int32_t shm_height = 0;
+    cam_mgr.GetMaxImageDimensions(shm_width, shm_height,
+                                  FALLBACK_WIDTH, FALLBACK_HEIGHT);
+
+    std::cout << "[Main] SHM buffer slot size: " << shm_width
+              << "x" << shm_height << "x" << DEFAULT_CHANNELS
+              << " (" << (static_cast<int64_t>(shm_width) * shm_height * DEFAULT_CHANNELS / 1024 / 1024)
+              << " MB per slot, "
+              << (static_cast<int64_t>(shm_width) * shm_height * DEFAULT_CHANNELS * POOL_SIZE / 1024 / 1024)
+              << " MB total pool)\n";
+
+    // ── 3. Shared memory ──────────────────────────────────────────────────────
+    if (!shm.Initialize(shm_width, shm_height, DEFAULT_CHANNELS)) {
         std::cerr << "[Main] FATAL: Failed to create shared memory.\n"
                   << "       The process must be run as Administrator to create\n"
                   << "       objects in the Global\\ namespace.\n";
         return 1;
     }
 
-    // ── 2. Spinnaker camera manager ───────────────────────────────────────────
-    SpinnakerCameraManager cam_mgr(shm);
-    if (!cam_mgr.Initialize(save_dir)) {
-        std::cerr << "[Main] FATAL: Failed to initialise Spinnaker.\n";
-        return 1;
-    }
+    // SetNumCameras was a no-op during cam_mgr.Initialize() because SHM wasn't
+    // ready yet — call it now.
+    shm.SetNumCameras(cam_count);
 
-    std::cout << "[Main] " << cam_mgr.GetConnectedCameraCount()
-              << " camera(s) ready.\n";
-
-    // ── 3. gRPC server (run on background thread so we can poll g_shutdown) ───
+    // ── 4. gRPC server (run on background thread so we can poll g_shutdown) ───
     GrpcServer grpc_server(cam_mgr, shm);
 
     std::thread grpc_thread([&] {
@@ -84,11 +108,11 @@ int main(int argc, char* argv[]) {
         }
     });
 
-    // ── 4. Main loop – wait for shutdown signal ────────────────────────────────
+    // ── 5. Main loop – wait for shutdown signal ────────────────────────────────
     while (!g_shutdown.load(std::memory_order_acquire))
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    // ── 5. Orderly teardown ───────────────────────────────────────────────────
+    // ── 6. Orderly teardown ───────────────────────────────────────────────────
     std::cout << "[Main] Shutting down...\n";
 
     grpc_server.Shutdown();

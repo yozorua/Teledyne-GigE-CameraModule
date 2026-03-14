@@ -144,23 +144,23 @@ void CameraControl::Stub::async::SetParameter(::grpc::ClientContext* context, co
   return result;
 }
 
-::grpc::Status CameraControl::Stub::TriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::camaramodule::CommandStatus* response) {
-  return ::grpc::internal::BlockingUnaryCall< ::camaramodule::Empty, ::camaramodule::CommandStatus, ::grpc::protobuf::MessageLite, ::grpc::protobuf::MessageLite>(channel_.get(), rpcmethod_TriggerDiskSave_, context, request, response);
+::grpc::Status CameraControl::Stub::TriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::camaramodule::CommandStatus* response) {
+  return ::grpc::internal::BlockingUnaryCall< ::camaramodule::CameraRequest, ::camaramodule::CommandStatus, ::grpc::protobuf::MessageLite, ::grpc::protobuf::MessageLite>(channel_.get(), rpcmethod_TriggerDiskSave_, context, request, response);
 }
 
-void CameraControl::Stub::async::TriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)> f) {
-  ::grpc::internal::CallbackUnaryCall< ::camaramodule::Empty, ::camaramodule::CommandStatus, ::grpc::protobuf::MessageLite, ::grpc::protobuf::MessageLite>(stub_->channel_.get(), stub_->rpcmethod_TriggerDiskSave_, context, request, response, std::move(f));
+void CameraControl::Stub::async::TriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CommandStatus* response, std::function<void(::grpc::Status)> f) {
+  ::grpc::internal::CallbackUnaryCall< ::camaramodule::CameraRequest, ::camaramodule::CommandStatus, ::grpc::protobuf::MessageLite, ::grpc::protobuf::MessageLite>(stub_->channel_.get(), stub_->rpcmethod_TriggerDiskSave_, context, request, response, std::move(f));
 }
 
-void CameraControl::Stub::async::TriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response, ::grpc::ClientUnaryReactor* reactor) {
+void CameraControl::Stub::async::TriggerDiskSave(::grpc::ClientContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CommandStatus* response, ::grpc::ClientUnaryReactor* reactor) {
   ::grpc::internal::ClientCallbackUnaryFactory::Create< ::grpc::protobuf::MessageLite, ::grpc::protobuf::MessageLite>(stub_->channel_.get(), stub_->rpcmethod_TriggerDiskSave_, context, request, response, reactor);
 }
 
-::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* CameraControl::Stub::PrepareAsyncTriggerDiskSaveRaw(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) {
-  return ::grpc::internal::ClientAsyncResponseReaderHelper::Create< ::camaramodule::CommandStatus, ::camaramodule::Empty, ::grpc::protobuf::MessageLite, ::grpc::protobuf::MessageLite>(channel_.get(), cq, rpcmethod_TriggerDiskSave_, context, request);
+::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* CameraControl::Stub::PrepareAsyncTriggerDiskSaveRaw(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) {
+  return ::grpc::internal::ClientAsyncResponseReaderHelper::Create< ::camaramodule::CommandStatus, ::camaramodule::CameraRequest, ::grpc::protobuf::MessageLite, ::grpc::protobuf::MessageLite>(channel_.get(), cq, rpcmethod_TriggerDiskSave_, context, request);
 }
 
-::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* CameraControl::Stub::AsyncTriggerDiskSaveRaw(::grpc::ClientContext* context, const ::camaramodule::Empty& request, ::grpc::CompletionQueue* cq) {
+::grpc::ClientAsyncResponseReader< ::camaramodule::CommandStatus>* CameraControl::Stub::AsyncTriggerDiskSaveRaw(::grpc::ClientContext* context, const ::camaramodule::CameraRequest& request, ::grpc::CompletionQueue* cq) {
   auto* result =
     this->PrepareAsyncTriggerDiskSaveRaw(context, request, cq);
   result->StartCall();
@@ -303,10 +303,10 @@ CameraControl::Service::Service() {
   AddMethod(new ::grpc::internal::RpcServiceMethod(
       CameraControl_method_names[4],
       ::grpc::internal::RpcMethod::NORMAL_RPC,
-      new ::grpc::internal::RpcMethodHandler< CameraControl::Service, ::camaramodule::Empty, ::camaramodule::CommandStatus, ::grpc::protobuf::MessageLite, ::grpc::protobuf::MessageLite>(
+      new ::grpc::internal::RpcMethodHandler< CameraControl::Service, ::camaramodule::CameraRequest, ::camaramodule::CommandStatus, ::grpc::protobuf::MessageLite, ::grpc::protobuf::MessageLite>(
           [](CameraControl::Service* service,
              ::grpc::ServerContext* ctx,
-             const ::camaramodule::Empty* req,
+             const ::camaramodule::CameraRequest* req,
              ::camaramodule::CommandStatus* resp) {
                return service->TriggerDiskSave(ctx, req, resp);
              }, this)));
@@ -383,7 +383,7 @@ CameraControl::Service::~Service() {
   return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
 }
 
-::grpc::Status CameraControl::Service::TriggerDiskSave(::grpc::ServerContext* context, const ::camaramodule::Empty* request, ::camaramodule::CommandStatus* response) {
+::grpc::Status CameraControl::Service::TriggerDiskSave(::grpc::ServerContext* context, const ::camaramodule::CameraRequest* request, ::camaramodule::CommandStatus* response) {
   (void) context;
   (void) request;
   (void) response;

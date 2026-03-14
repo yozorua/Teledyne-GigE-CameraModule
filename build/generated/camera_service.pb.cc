@@ -259,7 +259,10 @@ inline constexpr CameraState::Impl_::Impl_(
         exposure_us_{0},
         gain_db_{0},
         fps_{0},
-        acquiring_{false} {}
+        acquiring_{false},
+        gamma_{0},
+        black_level_{0},
+        frame_rate_{0} {}
 
 template <typename>
 PROTOBUF_CONSTEXPR CameraState::CameraState(::_pbi::ConstantInitialized)
@@ -330,7 +333,7 @@ const ::uint32_t
         2,
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::camaramodule::CameraState, _impl_._has_bits_),
-        17, // hasbit index offset
+        20, // hasbit index offset
         PROTOBUF_FIELD_OFFSET(::camaramodule::CameraState, _impl_.camera_id_),
         PROTOBUF_FIELD_OFFSET(::camaramodule::CameraState, _impl_.model_name_),
         PROTOBUF_FIELD_OFFSET(::camaramodule::CameraState, _impl_.serial_),
@@ -345,6 +348,9 @@ const ::uint32_t
         PROTOBUF_FIELD_OFFSET(::camaramodule::CameraState, _impl_.gain_db_),
         PROTOBUF_FIELD_OFFSET(::camaramodule::CameraState, _impl_.fps_),
         PROTOBUF_FIELD_OFFSET(::camaramodule::CameraState, _impl_.acquiring_),
+        PROTOBUF_FIELD_OFFSET(::camaramodule::CameraState, _impl_.gamma_),
+        PROTOBUF_FIELD_OFFSET(::camaramodule::CameraState, _impl_.black_level_),
+        PROTOBUF_FIELD_OFFSET(::camaramodule::CameraState, _impl_.frame_rate_),
         3,
         0,
         1,
@@ -359,6 +365,9 @@ const ::uint32_t
         11,
         12,
         13,
+        14,
+        15,
+        16,
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::camaramodule::ParameterRequest, _impl_._has_bits_),
         7, // hasbit index offset
@@ -413,12 +422,12 @@ static const ::_pbi::MigrationSchema
         {1, sizeof(::camaramodule::CameraRequest)},
         {6, sizeof(::camaramodule::SystemState)},
         {15, sizeof(::camaramodule::CameraState)},
-        {46, sizeof(::camaramodule::ParameterRequest)},
-        {57, sizeof(::camaramodule::SaveDirectoryRequest)},
-        {62, sizeof(::camaramodule::FrameRequest)},
-        {67, sizeof(::camaramodule::FrameInfo)},
-        {80, sizeof(::camaramodule::ReleaseRequest)},
-        {85, sizeof(::camaramodule::CommandStatus)},
+        {52, sizeof(::camaramodule::ParameterRequest)},
+        {63, sizeof(::camaramodule::SaveDirectoryRequest)},
+        {68, sizeof(::camaramodule::FrameRequest)},
+        {73, sizeof(::camaramodule::FrameInfo)},
+        {86, sizeof(::camaramodule::ReleaseRequest)},
+        {91, sizeof(::camaramodule::CommandStatus)},
 };
 static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
     &::camaramodule::_Empty_default_instance_._instance,
@@ -438,46 +447,48 @@ const char descriptor_table_protodef_camera_5fservice_2eproto[] ABSL_ATTRIBUTE_S
     "Empty\"\"\n\rCameraRequest\022\021\n\tcamera_id\030\001 \001("
     "\005\"M\n\013SystemState\022\016\n\006status\030\001 \001(\t\022\031\n\021conn"
     "ected_cameras\030\002 \001(\005\022\023\n\013current_fps\030\003 \001(\002"
-    "\"\207\002\n\013CameraState\022\021\n\tcamera_id\030\001 \001(\005\022\022\n\nm"
+    "\"\277\002\n\013CameraState\022\021\n\tcamera_id\030\001 \001(\005\022\022\n\nm"
     "odel_name\030\002 \001(\t\022\016\n\006serial\030\003 \001(\t\022\022\n\nip_ad"
     "dress\030\004 \001(\t\022\r\n\005width\030\005 \001(\005\022\016\n\006height\030\006 \001"
     "(\005\022\020\n\010offset_x\030\007 \001(\005\022\020\n\010offset_y\030\010 \001(\005\022\021"
     "\n\tbinning_h\030\t \001(\005\022\021\n\tbinning_v\030\n \001(\005\022\023\n\013"
     "exposure_us\030\013 \001(\002\022\017\n\007gain_db\030\014 \001(\002\022\013\n\003fp"
-    "s\030\r \001(\002\022\021\n\tacquiring\030\016 \001(\010\"a\n\020ParameterR"
-    "equest\022\021\n\tcamera_id\030\001 \001(\005\022\022\n\nparam_name\030"
-    "\002 \001(\t\022\023\n\013float_value\030\003 \001(\002\022\021\n\tint_value\030"
-    "\004 \001(\005\"$\n\024SaveDirectoryRequest\022\014\n\004path\030\001 "
-    "\001(\t\"!\n\014FrameRequest\022\021\n\tcamera_id\030\001 \001(\005\"m"
-    "\n\tFrameInfo\022\033\n\023shared_memory_index\030\001 \001(\005"
-    "\022\021\n\ttimestamp\030\002 \001(\003\022\r\n\005width\030\003 \001(\005\022\016\n\006he"
-    "ight\030\004 \001(\005\022\021\n\tcamera_id\030\005 \001(\005\"-\n\016Release"
-    "Request\022\033\n\023shared_memory_index\030\001 \001(\005\"1\n\r"
-    "CommandStatus\022\017\n\007success\030\001 \001(\010\022\017\n\007messag"
-    "e\030\002 \001(\t2\270\005\n\rCameraControl\022@\n\016GetSystemSt"
-    "ate\022\023.camaramodule.Empty\032\031.camaramodule."
-    "SystemState\022L\n\020StartAcquisition\022\033.camara"
-    "module.CameraRequest\032\033.camaramodule.Comm"
-    "andStatus\022K\n\017StopAcquisition\022\033.camaramod"
-    "ule.CameraRequest\032\033.camaramodule.Command"
-    "Status\022K\n\014SetParameter\022\036.camaramodule.Pa"
-    "rameterRequest\032\033.camaramodule.CommandSta"
-    "tus\022C\n\017TriggerDiskSave\022\023.camaramodule.Em"
-    "pty\032\033.camaramodule.CommandStatus\022S\n\020SetS"
-    "aveDirectory\022\".camaramodule.SaveDirector"
-    "yRequest\032\033.camaramodule.CommandStatus\022G\n"
-    "\rGetCameraInfo\022\033.camaramodule.CameraRequ"
-    "est\032\031.camaramodule.CameraState\022J\n\023GetLat"
-    "estImageFrame\022\032.camaramodule.FrameReques"
-    "t\032\027.camaramodule.FrameInfo\022N\n\021ReleaseIma"
-    "geFrame\022\034.camaramodule.ReleaseRequest\032\033."
-    "camaramodule.CommandStatusb\006proto3"
+    "s\030\r \001(\002\022\021\n\tacquiring\030\016 \001(\010\022\r\n\005gamma\030\017 \001("
+    "\002\022\023\n\013black_level\030\020 \001(\002\022\022\n\nframe_rate\030\021 \001"
+    "(\002\"a\n\020ParameterRequest\022\021\n\tcamera_id\030\001 \001("
+    "\005\022\022\n\nparam_name\030\002 \001(\t\022\023\n\013float_value\030\003 \001"
+    "(\002\022\021\n\tint_value\030\004 \001(\005\"$\n\024SaveDirectoryRe"
+    "quest\022\014\n\004path\030\001 \001(\t\"!\n\014FrameRequest\022\021\n\tc"
+    "amera_id\030\001 \001(\005\"m\n\tFrameInfo\022\033\n\023shared_me"
+    "mory_index\030\001 \001(\005\022\021\n\ttimestamp\030\002 \001(\003\022\r\n\005w"
+    "idth\030\003 \001(\005\022\016\n\006height\030\004 \001(\005\022\021\n\tcamera_id\030"
+    "\005 \001(\005\"-\n\016ReleaseRequest\022\033\n\023shared_memory"
+    "_index\030\001 \001(\005\"1\n\rCommandStatus\022\017\n\007success"
+    "\030\001 \001(\010\022\017\n\007message\030\002 \001(\t2\300\005\n\rCameraContro"
+    "l\022@\n\016GetSystemState\022\023.camaramodule.Empty"
+    "\032\031.camaramodule.SystemState\022L\n\020StartAcqu"
+    "isition\022\033.camaramodule.CameraRequest\032\033.c"
+    "amaramodule.CommandStatus\022K\n\017StopAcquisi"
+    "tion\022\033.camaramodule.CameraRequest\032\033.cama"
+    "ramodule.CommandStatus\022K\n\014SetParameter\022\036"
+    ".camaramodule.ParameterRequest\032\033.camaram"
+    "odule.CommandStatus\022K\n\017TriggerDiskSave\022\033"
+    ".camaramodule.CameraRequest\032\033.camaramodu"
+    "le.CommandStatus\022S\n\020SetSaveDirectory\022\".c"
+    "amaramodule.SaveDirectoryRequest\032\033.camar"
+    "amodule.CommandStatus\022G\n\rGetCameraInfo\022\033"
+    ".camaramodule.CameraRequest\032\031.camaramodu"
+    "le.CameraState\022J\n\023GetLatestImageFrame\022\032."
+    "camaramodule.FrameRequest\032\027.camaramodule"
+    ".FrameInfo\022N\n\021ReleaseImageFrame\022\034.camara"
+    "module.ReleaseRequest\032\033.camaramodule.Com"
+    "mandStatusb\006proto3"
 };
 static ::absl::once_flag descriptor_table_camera_5fservice_2eproto_once;
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_camera_5fservice_2eproto = {
     false,
     false,
-    1514,
+    1578,
     descriptor_table_protodef_camera_5fservice_2eproto,
     "camera_service.proto",
     &descriptor_table_camera_5fservice_2eproto_once,
@@ -1250,9 +1261,9 @@ CameraState::CameraState(
                offsetof(Impl_, camera_id_),
            reinterpret_cast<const char*>(&from._impl_) +
                offsetof(Impl_, camera_id_),
-           offsetof(Impl_, acquiring_) -
+           offsetof(Impl_, frame_rate_) -
                offsetof(Impl_, camera_id_) +
-               sizeof(Impl_::acquiring_));
+               sizeof(Impl_::frame_rate_));
 
   // @@protoc_insertion_point(copy_constructor:camaramodule.CameraState)
 }
@@ -1269,9 +1280,9 @@ inline void CameraState::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
   ::memset(reinterpret_cast<char*>(&_impl_) +
                offsetof(Impl_, camera_id_),
            0,
-           offsetof(Impl_, acquiring_) -
+           offsetof(Impl_, frame_rate_) -
                offsetof(Impl_, camera_id_) +
-               sizeof(Impl_::acquiring_));
+               sizeof(Impl_::frame_rate_));
 }
 CameraState::~CameraState() {
   // @@protoc_insertion_point(destructor:camaramodule.CameraState)
@@ -1333,16 +1344,16 @@ CameraState::GetClassData() const {
   return CameraState_class_data_.base();
 }
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<4, 14, 0, 67, 2>
+const ::_pbi::TcParseTable<5, 17, 0, 75, 2>
 CameraState::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(CameraState, _impl_._has_bits_),
     0, // no _extensions_
-    14, 120,  // max_field_number, fast_idx_mask
+    17, 248,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294950912,  // skipmap
+    4294836224,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    14,  // num_field_entries
+    17,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
     CameraState_class_data_.base(),
@@ -1409,6 +1420,31 @@ CameraState::_table_ = {
     {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(CameraState, _impl_.acquiring_), 13>(),
      {112, 13, 0,
       PROTOBUF_FIELD_OFFSET(CameraState, _impl_.acquiring_)}},
+    // float gamma = 15;
+    {::_pbi::TcParser::FastF32S1,
+     {125, 14, 0,
+      PROTOBUF_FIELD_OFFSET(CameraState, _impl_.gamma_)}},
+    // float black_level = 16;
+    {::_pbi::TcParser::FastF32S2,
+     {389, 15, 0,
+      PROTOBUF_FIELD_OFFSET(CameraState, _impl_.black_level_)}},
+    // float frame_rate = 17;
+    {::_pbi::TcParser::FastF32S2,
+     {397, 16, 0,
+      PROTOBUF_FIELD_OFFSET(CameraState, _impl_.frame_rate_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
     {::_pbi::TcParser::MiniParse, {}},
   }}, {{
     65535, 65535
@@ -1441,10 +1477,16 @@ CameraState::_table_ = {
     {PROTOBUF_FIELD_OFFSET(CameraState, _impl_.fps_), _Internal::kHasBitsOffset + 12, 0, (0 | ::_fl::kFcOptional | ::_fl::kFloat)},
     // bool acquiring = 14;
     {PROTOBUF_FIELD_OFFSET(CameraState, _impl_.acquiring_), _Internal::kHasBitsOffset + 13, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
+    // float gamma = 15;
+    {PROTOBUF_FIELD_OFFSET(CameraState, _impl_.gamma_), _Internal::kHasBitsOffset + 14, 0, (0 | ::_fl::kFcOptional | ::_fl::kFloat)},
+    // float black_level = 16;
+    {PROTOBUF_FIELD_OFFSET(CameraState, _impl_.black_level_), _Internal::kHasBitsOffset + 15, 0, (0 | ::_fl::kFcOptional | ::_fl::kFloat)},
+    // float frame_rate = 17;
+    {PROTOBUF_FIELD_OFFSET(CameraState, _impl_.frame_rate_), _Internal::kHasBitsOffset + 16, 0, (0 | ::_fl::kFcOptional | ::_fl::kFloat)},
   }},
   // no aux_entries
   {{
-    "\30\0\12\6\12\0\0\0\0\0\0\0\0\0\0\0"
+    "\30\0\12\6\12\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
     "camaramodule.CameraState"
     "model_name"
     "serial"
@@ -1475,11 +1517,12 @@ PROTOBUF_NOINLINE void CameraState::Clear() {
         reinterpret_cast<char*>(&_impl_.offset_y_) -
         reinterpret_cast<char*>(&_impl_.camera_id_)) + sizeof(_impl_.offset_y_));
   }
-  if (BatchCheckHasBit(cached_has_bits, 0x00003f00U)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x0000ff00U)) {
     ::memset(&_impl_.binning_h_, 0, static_cast<::size_t>(
-        reinterpret_cast<char*>(&_impl_.acquiring_) -
-        reinterpret_cast<char*>(&_impl_.binning_h_)) + sizeof(_impl_.acquiring_));
+        reinterpret_cast<char*>(&_impl_.black_level_) -
+        reinterpret_cast<char*>(&_impl_.binning_h_)) + sizeof(_impl_.black_level_));
   }
+  _impl_.frame_rate_ = 0;
   _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
 }
@@ -1632,6 +1675,33 @@ PROTOBUF_NOINLINE void CameraState::Clear() {
     }
   }
 
+  // float gamma = 15;
+  if (CheckHasBit(cached_has_bits, 0x00004000U)) {
+    if (::absl::bit_cast<::uint32_t>(this_._internal_gamma()) != 0) {
+      target = stream->EnsureSpace(target);
+      target = ::_pbi::WireFormatLite::WriteFloatToArray(
+          15, this_._internal_gamma(), target);
+    }
+  }
+
+  // float black_level = 16;
+  if (CheckHasBit(cached_has_bits, 0x00008000U)) {
+    if (::absl::bit_cast<::uint32_t>(this_._internal_black_level()) != 0) {
+      target = stream->EnsureSpace(target);
+      target = ::_pbi::WireFormatLite::WriteFloatToArray(
+          16, this_._internal_black_level(), target);
+    }
+  }
+
+  // float frame_rate = 17;
+  if (CheckHasBit(cached_has_bits, 0x00010000U)) {
+    if (::absl::bit_cast<::uint32_t>(this_._internal_frame_rate()) != 0) {
+      target = stream->EnsureSpace(target);
+      target = ::_pbi::WireFormatLite::WriteFloatToArray(
+          17, this_._internal_frame_rate(), target);
+    }
+  }
+
   if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
     target =
         ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
@@ -1715,7 +1785,7 @@ PROTOBUF_NOINLINE void CameraState::Clear() {
       }
     }
   }
-  if (BatchCheckHasBit(cached_has_bits, 0x00003f00U)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x0000ff00U)) {
     // int32 binning_h = 9;
     if (CheckHasBit(cached_has_bits, 0x00000100U)) {
       if (this_._internal_binning_h() != 0) {
@@ -1752,6 +1822,26 @@ PROTOBUF_NOINLINE void CameraState::Clear() {
     if (CheckHasBit(cached_has_bits, 0x00002000U)) {
       if (this_._internal_acquiring() != 0) {
         total_size += 2;
+      }
+    }
+    // float gamma = 15;
+    if (CheckHasBit(cached_has_bits, 0x00004000U)) {
+      if (::absl::bit_cast<::uint32_t>(this_._internal_gamma()) != 0) {
+        total_size += 5;
+      }
+    }
+    // float black_level = 16;
+    if (CheckHasBit(cached_has_bits, 0x00008000U)) {
+      if (::absl::bit_cast<::uint32_t>(this_._internal_black_level()) != 0) {
+        total_size += 6;
+      }
+    }
+  }
+   {
+    // float frame_rate = 17;
+    if (CheckHasBit(cached_has_bits, 0x00010000U)) {
+      if (::absl::bit_cast<::uint32_t>(this_._internal_frame_rate()) != 0) {
+        total_size += 6;
       }
     }
   }
@@ -1827,7 +1917,7 @@ void CameraState::MergeImpl(::google::protobuf::MessageLite& to_msg,
       }
     }
   }
-  if (BatchCheckHasBit(cached_has_bits, 0x00003f00U)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x0000ff00U)) {
     if (CheckHasBit(cached_has_bits, 0x00000100U)) {
       if (from._internal_binning_h() != 0) {
         _this->_impl_.binning_h_ = from._impl_.binning_h_;
@@ -1858,6 +1948,21 @@ void CameraState::MergeImpl(::google::protobuf::MessageLite& to_msg,
         _this->_impl_.acquiring_ = from._impl_.acquiring_;
       }
     }
+    if (CheckHasBit(cached_has_bits, 0x00004000U)) {
+      if (::absl::bit_cast<::uint32_t>(from._internal_gamma()) != 0) {
+        _this->_impl_.gamma_ = from._impl_.gamma_;
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00008000U)) {
+      if (::absl::bit_cast<::uint32_t>(from._internal_black_level()) != 0) {
+        _this->_impl_.black_level_ = from._impl_.black_level_;
+      }
+    }
+  }
+  if (CheckHasBit(cached_has_bits, 0x00010000U)) {
+    if (::absl::bit_cast<::uint32_t>(from._internal_frame_rate()) != 0) {
+      _this->_impl_.frame_rate_ = from._impl_.frame_rate_;
+    }
   }
   _this->_impl_._has_bits_[0] |= cached_has_bits;
   _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
@@ -1882,8 +1987,8 @@ void CameraState::InternalSwap(CameraState* PROTOBUF_RESTRICT PROTOBUF_NONNULL o
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.serial_, &other->_impl_.serial_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.ip_address_, &other->_impl_.ip_address_, arena);
   ::google::protobuf::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(CameraState, _impl_.acquiring_)
-      + sizeof(CameraState::_impl_.acquiring_)
+      PROTOBUF_FIELD_OFFSET(CameraState, _impl_.frame_rate_)
+      + sizeof(CameraState::_impl_.frame_rate_)
       - PROTOBUF_FIELD_OFFSET(CameraState, _impl_.camera_id_)>(
           reinterpret_cast<char*>(&_impl_.camera_id_),
           reinterpret_cast<char*>(&other->_impl_.camera_id_));

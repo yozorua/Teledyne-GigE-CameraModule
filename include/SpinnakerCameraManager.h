@@ -46,6 +46,9 @@ struct CameraInfo {
     float       gain_db{0.0f};
     float       fps{0.0f};
     bool        acquiring{false};
+    float       gamma{1.0f};
+    float       black_level{0.0f};
+    float       frame_rate{0.0f};   // AcquisitionFrameRate; 0 if node unavailable
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -88,8 +91,9 @@ public:
 
     // ── Disk save ─────────────────────────────────────────────────────────────
 
-    /// Flags the next captured frame for disk write (non-blocking).
-    void TriggerDiskSave();
+    /// Flags the next captured frame from @p camera_id for disk write
+    /// (non-blocking).  Pass -1 to accept a frame from any camera.
+    void TriggerDiskSave(int32_t camera_id = -1);
 
     /// Changes the directory where saved frames are written.  Thread-safe.
     void SetSaveDirectory(const std::string& path);
@@ -97,6 +101,16 @@ public:
     // ── Status queries ────────────────────────────────────────────────────────
 
     int32_t GetConnectedCameraCount() const;
+
+    /// Queries each connected camera for its maximum sensor resolution and
+    /// returns the largest width and height seen across all cameras.  Call
+    /// this after Initialize() and before SharedMemoryManager::Initialize()
+    /// so the SHM buffer slots are large enough for every camera's output.
+    /// Falls back to @p fallback_width / @p fallback_height if no cameras
+    /// are found or the nodes are unavailable.
+    void GetMaxImageDimensions(int32_t& out_width, int32_t& out_height,
+                               int32_t  fallback_width  = 1920,
+                               int32_t  fallback_height = 1080);
 
     /// Aggregate FPS: sum of per-camera FPS values.
     float GetCurrentFPS() const;
@@ -138,7 +152,9 @@ private:
     std::condition_variable   save_cv_;
     std::atomic<bool>         save_thread_running_{false};
     std::thread               save_thread_;
-    std::atomic<bool>         pending_save_{false};
+    // -2 = no pending save; -1 = save from any camera; 0+ = specific camera_id.
+    static constexpr int32_t  SAVE_IDLE = -2;
+    std::atomic<int32_t>      pending_save_camera_id_{SAVE_IDLE};
 
     // ── Per-camera FPS tracking ───────────────────────────────────────────────
     static constexpr std::size_t FPS_WINDOW = 30;

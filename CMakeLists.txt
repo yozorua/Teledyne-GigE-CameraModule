@@ -115,7 +115,9 @@ target_link_libraries(GigECameraModule PRIVATE
     gRPC::grpc++
     gRPC::grpc++_reflection
     protobuf::libprotobuf
-    "${SPINNAKER_LIBRARY}")
+    "${SPINNAKER_LIBRARY}"
+    Ole32           # COM (required by Windows Imaging Component)
+    Windowscodecs)  # WIC — JPEG encoder used by DiskSaveLoop
 
 target_compile_options(GigECameraModule PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:

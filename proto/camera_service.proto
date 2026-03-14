@@ -13,7 +13,7 @@ service CameraControl {
   rpc SetParameter        (ParameterRequest)     returns (CommandStatus);
 
   // ── Disk save ─────────────────────────────────────────────────────────────
-  rpc TriggerDiskSave     (Empty)                returns (CommandStatus);
+  rpc TriggerDiskSave     (CameraRequest)        returns (CommandStatus);  // camera_id: -1 = any
   rpc SetSaveDirectory    (SaveDirectoryRequest) returns (CommandStatus);
 
   // ── Per-camera state ──────────────────────────────────────────────────────
@@ -52,6 +52,9 @@ message CameraState {
   float  gain_db     = 12;
   float  fps         = 13;
   bool   acquiring   = 14;
+  float  gamma       = 15;
+  float  black_level = 16;
+  float  frame_rate  = 17;  // AcquisitionFrameRate; 0 if node unavailable
 }
 
 message ParameterRequest {
