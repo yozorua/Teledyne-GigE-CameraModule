@@ -145,6 +145,10 @@ bool SpinnakerCameraManager::StartCamera(int32_t camera_id) {
         ConfigureCamera(cameras_[camera_id]);
         cameras_[camera_id]->BeginAcquisition();
 
+        debayer_running_[camera_id].store(true, std::memory_order_release);
+        debayer_threads_[camera_id] = std::thread(
+            &SpinnakerCameraManager::DebayerThread, this, camera_id);
+
         acq_threads_[camera_id] = std::thread(
             &SpinnakerCameraManager::CameraAcquisitionThread,
             this, cameras_[camera_id], camera_id);
@@ -164,9 +168,20 @@ bool SpinnakerCameraManager::StopCamera(int32_t camera_id) {
     if (!camera_acquiring_[camera_id].exchange(false, std::memory_order_acq_rel))
         return true;  // was not running
 
+    // 1. Stop the acquisition thread first (no more raw frames will be posted).
     if (acq_threads_[camera_id].joinable())
         acq_threads_[camera_id].join();
 
+    // 2. Signal the debayer thread and wait for it to drain.
+    {
+        std::lock_guard<std::mutex> lk(raw_mutex_[camera_id]);
+        debayer_running_[camera_id].store(false, std::memory_order_release);
+    }
+    raw_cv_[camera_id].notify_one();
+    if (debayer_threads_[camera_id].joinable())
+        debayer_threads_[camera_id].join();
+
+    // 3. End acquisition on the camera.
     try {
         if (cameras_[camera_id]->IsStreaming())
             cameras_[camera_id]->EndAcquisition();
@@ -251,28 +266,86 @@ void SpinnakerCameraManager::CameraAcquisitionThread(Spinnaker::CameraPtr camera
             continue;
         }
 
-        // ── Claim a shared memory buffer ──────────────────────────────────────
-        const int32_t buf_idx = shm_.ClaimFreeBuffer();
-        if (buf_idx < 0) {
-            image->Release();
-            continue;
+        // ── Copy raw Bayer bytes into the debayer slot ─────────────────────────
+        // This is the only work done while holding the ImagePtr.
+        // The debayer thread picks up the raw bytes and does conversion
+        // asynchronously, so image->Release() happens before any CPU-heavy work.
+        {
+            const std::size_t raw_bytes = image->GetImageSize();
+            std::lock_guard<std::mutex> lk(raw_mutex_[camera_id]);
+            RawFrame& slot = raw_frames_[camera_id];
+            if (slot.data.size() < raw_bytes)
+                slot.data.resize(raw_bytes);
+            std::memcpy(slot.data.data(), image->GetData(), raw_bytes);
+            slot.width        = static_cast<int32_t>(image->GetWidth());
+            slot.height       = static_cast<int32_t>(image->GetHeight());
+            slot.pixel_format = image->GetPixelFormat();
+            slot.pending      = true;
         }
 
-        // ── Deep-copy image data into shared memory ───────────────────────────
-        const std::size_t src_bytes = image->GetImageSize();
-        const std::size_t dst_bytes = shm_.GetHeader()->single_image_size;
-        std::memcpy(shm_.GetBufferPtr(buf_idx),
-                    image->GetData(),
-                    std::min(src_bytes, dst_bytes));
+        // ── Release the Spinnaker ImagePtr — before any debayer work ──────────
+        image->Release();
 
-        // ── Publish to consumers ──────────────────────────────────────────────
-        shm_.PublishBuffer(buf_idx, camera_id,
-                           static_cast<int32_t>(image->GetWidth()),
-                           static_cast<int32_t>(image->GetHeight()));
+        raw_cv_[camera_id].notify_one();
         RecordFrameTime(camera_id);
+    }
+}
 
-        // ── Optional disk save (non-blocking) ─────────────────────────────────
-        // Claim the pending save if it targets this camera or any camera (-1).
+// ─────────────────────────────────────────────────────────────────────────────
+// Per-camera debayer thread
+// Converts raw Bayer frames to RGB8, writes to SHM, handles disk saves.
+// Runs independently of the acquisition thread so debayer latency does not
+// delay image->Release() or affect the camera's internal buffer queue.
+// ─────────────────────────────────────────────────────────────────────────────
+
+void SpinnakerCameraManager::DebayerThread(int32_t camera_id) {
+    Spinnaker::ImageProcessor img_proc;
+    img_proc.SetColorProcessing(
+        Spinnaker::SPINNAKER_COLOR_PROCESSING_ALGORITHM_HQ_LINEAR);
+
+    while (true) {
+        RawFrame local;
+
+        {
+            std::unique_lock<std::mutex> lk(raw_mutex_[camera_id]);
+            raw_cv_[camera_id].wait(lk, [&] {
+                return raw_frames_[camera_id].pending ||
+                       !debayer_running_[camera_id].load(std::memory_order_relaxed);
+            });
+
+            if (!raw_frames_[camera_id].pending) break;  // shutdown with no pending frame
+
+            // Move the slot contents out so we release the lock before debayering.
+            local = std::move(raw_frames_[camera_id]);
+            raw_frames_[camera_id].pending = false;
+        }
+
+        // ── Debayer: wrap raw bytes in a Spinnaker Image, convert to RGB8 ─────
+        // Image::Create() references the provided buffer without copying.
+        // ImageProcessor::Convert() returns a new independent heap ImagePtr.
+        // Neither call requires an active camera stream.
+        Spinnaker::ImagePtr raw_img = Spinnaker::Image::Create(
+            static_cast<size_t>(local.width),
+            static_cast<size_t>(local.height),
+            0, 0,
+            local.pixel_format,
+            local.data.data());
+
+        Spinnaker::ImagePtr rgb_img = img_proc.Convert(raw_img, Spinnaker::PixelFormat_RGB8);
+
+        // ── Write RGB8 frame to shared memory ─────────────────────────────────
+        const int32_t buf_idx = shm_.ClaimFreeBuffer();
+        if (buf_idx >= 0) {
+            const std::size_t rgb_bytes = rgb_img->GetImageSize();
+            const std::size_t dst_bytes = shm_.GetHeader()->single_image_size;
+            std::memcpy(shm_.GetBufferPtr(buf_idx),
+                        rgb_img->GetData(),
+                        std::min(rgb_bytes, dst_bytes));
+            shm_.PublishBuffer(buf_idx, camera_id, local.width, local.height);
+        }
+
+        // ── Optional disk save ─────────────────────────────────────────────────
+        // The RGB8 data is already available here — no second conversion needed.
         int32_t save_req = pending_save_camera_id_.load(std::memory_order_acquire);
         const bool save_wanted = (save_req != SAVE_IDLE) &&
                                  (save_req == camera_id || save_req == -1);
@@ -284,37 +357,21 @@ void SpinnakerCameraManager::CameraAcquisitionThread(Spinnaker::CameraPtr camera
 
             FrameSnapshot snap;
             snap.camera_id = camera_id;
+            snap.width     = static_cast<uint32_t>(rgb_img->GetWidth());
+            snap.height    = static_cast<uint32_t>(rgb_img->GetHeight());
+            snap.channels  = 3;
+            const std::size_t rgb_bytes = rgb_img->GetImageSize();
+            snap.data.resize(rgb_bytes);
+            std::memcpy(snap.data.data(), rgb_img->GetData(), rgb_bytes);
 
-            // Debayer / colour-convert while we still hold the ImagePtr.
-            // ImageProcessor::Convert() handles any source format (Bayer, Mono,
-            // YUV, …) and returns a new heap-allocated ImagePtr — independent of
-            // the camera stream, safe to use after the original is released.
-            // RGB8: R first in memory — matches WIC GUID_WICPixelFormat24bppRGB.
-            Spinnaker::ImageProcessor img_proc;
-            img_proc.SetColorProcessing(
-                Spinnaker::SPINNAKER_COLOR_PROCESSING_ALGORITHM_HQ_LINEAR);
-            Spinnaker::ImagePtr converted =
-                img_proc.Convert(image, Spinnaker::PixelFormat_RGB8);
-
-            snap.width    = static_cast<uint32_t>(converted->GetWidth());
-            snap.height   = static_cast<uint32_t>(converted->GetHeight());
-            snap.channels = 3;
-            const std::size_t conv_bytes = converted->GetImageSize();
-            snap.data.resize(conv_bytes);
-            std::memcpy(snap.data.data(), converted->GetData(), conv_bytes);
-            // converted goes out of scope here; destructor handles cleanup.
-
-            // Build filename: frame_cam<N>_<timestamp_ms>.jpg
             const auto now = std::chrono::system_clock::now();
             const auto ms  = std::chrono::duration_cast<std::chrono::milliseconds>(
                                  now.time_since_epoch()).count();
-
             std::string save_dir;
             {
                 std::lock_guard<std::mutex> lk(save_dir_mutex_);
                 save_dir = save_directory_;
             }
-
             std::ostringstream ss;
             ss << save_dir << "/frame_cam" << camera_id << "_" << ms << ".jpg";
             snap.save_path = ss.str();
@@ -325,9 +382,6 @@ void SpinnakerCameraManager::CameraAcquisitionThread(Spinnaker::CameraPtr camera
             }
             save_cv_.notify_one();
         }
-
-        // ── Release the Spinnaker ImagePtr immediately ─────────────────────────
-        image->Release();
     }
 }
 

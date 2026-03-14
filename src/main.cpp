@@ -18,7 +18,7 @@
 // found across all connected cameras (see step 2 below).
 static constexpr int32_t FALLBACK_WIDTH    = 4096;
 static constexpr int32_t FALLBACK_HEIGHT   = 4096;
-static constexpr int32_t DEFAULT_CHANNELS  = 1;      // Mono8
+static constexpr int32_t DEFAULT_CHANNELS  = 3;      // RGB8 (debayered)
 
 static constexpr const char* DEFAULT_GRPC_ADDR = "0.0.0.0:50051";
 static constexpr const char* DEFAULT_SAVE_DIR  = ".";

@@ -108,8 +108,10 @@ Pass float nodes via `float_value`; integer nodes via `int_value`.
 
 ## Examples
 
-- [`cpp/camera_analyzer.cpp`](cpp/camera_analyzer.cpp) — C++17 consumer using gRPC + direct SHM access
-- [`python/camera_client.py`](python/camera_client.py) — Python consumer using grpcio + ctypes SHM
+| Language | Wrapper | Example |
+|---|---|---|
+| C++ | [`examples/cpp/gige_camera.h`](examples/cpp/gige_camera.h) | [`examples/cpp/simple_grab.cpp`](examples/cpp/simple_grab.cpp) |
+| Python | [`examples/python/gige_camera.py`](examples/python/gige_camera.py) | [`examples/python/simple_grab.py`](examples/python/simple_grab.py) |
 
 ---
 
@@ -120,9 +122,9 @@ Pass float nodes via `float_value`; integer nodes via `int_value`.
 **Python** stubs — run once before using the Python example:
 
 ```bat
-cd python
+cd examples\python
 generate_proto.bat
 ```
 
 This creates `camera_service_pb2.py` and `camera_service_pb2_grpc.py` in the
-`python/` directory.
+`examples/python/` directory.

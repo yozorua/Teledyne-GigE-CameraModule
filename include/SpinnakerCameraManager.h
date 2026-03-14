@@ -15,7 +15,22 @@
 #include <vector>
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FrameSnapshot – heap copy of one image queued for async disk writing
+// RawFrame – one raw Bayer frame handed from the acquisition thread to the
+//            per-camera debayer thread.  A single slot per camera is used
+//            (latest-wins): if the debayer thread is still busy when the next
+//            frame arrives the new frame simply overwrites the slot.
+// ─────────────────────────────────────────────────────────────────────────────
+
+struct RawFrame {
+    std::vector<uint8_t>        data;
+    int32_t                     width{0};
+    int32_t                     height{0};
+    Spinnaker::PixelFormatEnums pixel_format{};
+    bool                        pending{false};
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FrameSnapshot – heap copy of one debayered RGB image queued for disk writing
 // ─────────────────────────────────────────────────────────────────────────────
 
 struct FrameSnapshot {
@@ -131,6 +146,7 @@ private:
 
     void ConfigureCamera(Spinnaker::CameraPtr& camera);
     void CameraAcquisitionThread(Spinnaker::CameraPtr camera, int32_t camera_id);
+    void DebayerThread(int32_t camera_id);
     void DiskSaveLoop();
     void RecordFrameTime(int32_t camera_id);
 
@@ -143,6 +159,16 @@ private:
     // Using a fixed array so individual threads can be joined by camera_id.
     std::thread       acq_threads_[MAX_CAMERAS];
     std::atomic<bool> camera_acquiring_[MAX_CAMERAS]{};
+
+    // Per-camera debayer pipeline.
+    // The acquisition thread copies raw Bayer bytes into raw_frames_[cam_id]
+    // (latest-wins single slot) and signals raw_cv_[cam_id].
+    // DebayerThread picks up the raw frame, converts to RGB8, and writes to SHM.
+    RawFrame                raw_frames_[MAX_CAMERAS];
+    std::mutex              raw_mutex_[MAX_CAMERAS];
+    std::condition_variable raw_cv_[MAX_CAMERAS];
+    std::thread             debayer_threads_[MAX_CAMERAS];
+    std::atomic<bool>       debayer_running_[MAX_CAMERAS]{};
 
     // ── Disk-save queue ───────────────────────────────────────────────────────
     std::string               save_directory_;
