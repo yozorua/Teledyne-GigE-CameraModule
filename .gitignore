@@ -3,3 +3,4 @@
 dist.zip
 CLAUDE.md
 .claude/settings.local.json
+modules/rtsp-server/build
