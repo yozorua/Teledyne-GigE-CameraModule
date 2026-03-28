@@ -89,24 +89,54 @@ cmake --build build-debug --parallel
 
 ## Deployment
 
-Copy the entire `dist\` folder to the target machine. It contains both executables and all vcpkg runtime DLLs:
+Copy the entire `dist\` folder to the target machine. It is self-contained — no vcpkg or Visual Studio installation required.
 
 ```
 dist\
-  GigECameraModule.exe
-  GigEDebugClient.exe
+  GigECameraModule.exe       Camera server (requires Administrator)
+  GigEDebugClient.exe        gRPC REPL (no admin, no cameras needed)
+  GigERtspServer.exe         RTSP stream server
+
+  — gRPC / protobuf —
   abseil_dll.dll
   cares.dll
   legacy.dll
   libcrypto-3-x64.dll
-  libprotobuf-lite.dll
   libprotobuf.dll
   libssl-3-x64.dll
   re2.dll
   zlib1.dll
+
+  — FFmpeg (H.264 encoder, used by GigERtspServer) —
+  avcodec-62.dll
+  avutil-60.dll
+  swscale-9.dll
+  swresample-6.dll
+  libx264-164.dll
+
+  — Spinnaker runtime (used by GigECameraModule) —
+  Spinnaker_v140.dll
+  libiomp5md.dll
+
+  — MSVC C++ runtime —
+  msvcp140.dll  msvcp140_1.dll  msvcp140_2.dll  msvcp140_atomic_wait.dll
+  vcruntime140.dll  vcruntime140_1.dll
 ```
 
-The target machine also needs the **Spinnaker SDK runtime** installed (for `GigECameraModule.exe` only). The SDK installer adds the Spinnaker DLLs (`Spinnaker_v140.dll`, etc.) to `PATH` automatically. `GigEDebugClient.exe` has no Spinnaker dependency and runs standalone.
+### ⚠ Spinnaker SDK driver required on the camera machine
+
+The `dist\` folder includes the Spinnaker **runtime DLLs** (`Spinnaker_v140.dll`, `libiomp5md.dll`), so you do **not** need to install the full Spinnaker SDK on the target machine.
+
+However, `GigECameraModule.exe` **does** require the Spinnaker **GigE Vision network filter driver** to enumerate cameras over the network. This driver is only installed by the Spinnaker SDK installer — the DLLs alone are not sufficient.
+
+**Install the driver on any machine that runs `GigECameraModule.exe`:**
+
+1. Download the Spinnaker SDK installer from [Teledyne FLIR](https://www.flir.com/products/spinnaker-sdk/)
+2. Run the installer and select **"GigE Vision Filter Driver"** (you may deselect the SDK headers, examples, and Python bindings if you only need the driver)
+3. Reboot if prompted
+4. Run `GigECameraModule.exe` as Administrator
+
+> `GigEDebugClient.exe` and `GigERtspServer.exe` have **no Spinnaker dependency** and work on any machine with network access to the server — no driver or SDK installation needed.
 
 ---
 

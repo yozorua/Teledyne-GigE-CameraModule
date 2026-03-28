@@ -108,10 +108,10 @@ Pass float nodes via `float_value`; integer nodes via `int_value`.
 
 ## Examples
 
-| Language | Wrapper | Example |
+| Language | Guide | Wrapper |
 |---|---|---|
-| C++ | [`examples/cpp/gige_camera.h`](examples/cpp/gige_camera.h) | [`examples/cpp/simple_grab.cpp`](examples/cpp/simple_grab.cpp) |
-| Python | [`examples/python/gige_camera.py`](examples/python/gige_camera.py) | [`examples/python/simple_grab.py`](examples/python/simple_grab.py) |
+| C++ | [`examples/cpp/README.md`](examples/cpp/README.md) | [`examples/cpp/gige_camera.h`](examples/cpp/gige_camera.h) |
+| Python | [`examples/python/`](examples/python/) | [`examples/python/gige_camera.py`](examples/python/gige_camera.py) |
 
 ---
 

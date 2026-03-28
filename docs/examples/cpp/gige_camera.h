@@ -42,11 +42,13 @@
 
 #include <atomic>
 #include <cassert>
+#include <chrono>
 #include <cstdint>
 #include <cstring>
 #include <memory>
 #include <optional>
 #include <string>
+#include <thread>
 #include <vector>
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -277,6 +279,59 @@ public:
      */
     std::optional<GigeFrame> grab_any() {
         return grab_impl(-1);
+    }
+
+    /**
+     * Block until a frame newer than last_ts arrives, or timeout expires.
+     *
+     * Use this in processing loops so you never process the same frame twice:
+     * @code
+     *   int64_t last_ts = 0;
+     *   while (running) {
+     *       auto frame = cam.grab_wait(0, last_ts, 500);
+     *       if (!frame) continue;       // timeout — try again
+     *       last_ts = frame->timestamp_ms;
+     *       // ... process frame ...
+     *   }
+     * @endcode
+     *
+     * @param camera_id   0-based camera index.
+     * @param last_ts     Timestamp of the last processed frame (0 = accept any).
+     * @param timeout_ms  Maximum wait in milliseconds.
+     * @return New frame, or std::nullopt on timeout.
+     */
+    std::optional<GigeFrame> grab_wait(int32_t camera_id = 0,
+                                       int64_t last_ts   = 0,
+                                       int     timeout_ms = 1000)
+    {
+        using clock = std::chrono::steady_clock;
+        const auto deadline = clock::now() + std::chrono::milliseconds(timeout_ms);
+        while (clock::now() < deadline) {
+            auto frame = grab_impl(camera_id);
+            if (frame && frame->timestamp_ms != last_ts)
+                return frame;
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        return std::nullopt;
+    }
+
+    /**
+     * Blocking any-camera variant of grab_wait().
+     *
+     * Returns the next new frame from whichever camera produced it most recently.
+     */
+    std::optional<GigeFrame> grab_any_wait(int64_t last_ts   = 0,
+                                           int     timeout_ms = 1000)
+    {
+        using clock = std::chrono::steady_clock;
+        const auto deadline = clock::now() + std::chrono::milliseconds(timeout_ms);
+        while (clock::now() < deadline) {
+            auto frame = grab_impl(-1);
+            if (frame && frame->timestamp_ms != last_ts)
+                return frame;
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        return std::nullopt;
     }
 
     // ── Parameter control ─────────────────────────────────────────────────────
