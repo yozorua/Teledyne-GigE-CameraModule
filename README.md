@@ -401,16 +401,26 @@ build\GigEDebugClient.exe localhost:50051
 
 | Command | Action |
 |---|---|
-| `set <name> <float> <int>` | `SetParameter` on all cameras |
-| `set <cam_id> <name> <float> <int>` | `SetParameter` on one camera |
+| `set <name> <float> <int> [string]` | `SetParameter` on all cameras |
+| `set <cam_id> <name> <float> <int> [string]` | `SetParameter` on one camera |
 
-The first token is treated as a `cam_id` if it parses as an integer, otherwise as the node name (all cameras).  Examples:
+The first token is treated as a `cam_id` if it parses as an integer, otherwise as the node name (all cameras). The optional `string` argument is for enumeration nodes — pass `0 0` as float/int placeholders when using it.
 
 ```
-set ExposureTime 5000.0 0       # all cameras
-set 0 ExposureTime 8000.0 0     # camera 0 only
-set -1 Gain 10.0 0              # all cameras (explicit)
-set 1 Width 0 2048              # camera 1, integer node
+# Float nodes
+set ExposureTime 5000.0 0       # all cameras, 5 ms
+set 0 ExposureTime 8000.0 0     # camera 0 only, 8 ms
+set -1 Gain 10.0 0              # all cameras, 10 dB
+
+# Integer nodes
+set 1 Width 0 2048              # camera 1, ROI width
+
+# Enumeration nodes (auto exposure / auto gain)
+set ExposureAuto 0 0 Continuous   # enable auto-exposure on all cameras
+set GainAuto     0 0 Continuous   # enable auto-gain on all cameras
+set ExposureAuto 0 0 Once         # auto-adjust once, then lock
+set ExposureAuto 0 0 Off          # disable — required before writing ExposureTime
+set 0 GainAuto   0 0 Off          # disable on camera 0 only
 ```
 
 **Disk save**

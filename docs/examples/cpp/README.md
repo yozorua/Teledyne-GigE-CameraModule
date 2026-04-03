@@ -299,6 +299,43 @@ cam.set_frame_rate(30.f);    // 30 fps, all cameras
 cam.set_frame_rate(10.f, 1); // 10 fps, camera 1
 ```
 
+### Auto exposure
+
+```cpp
+// Enable continuous auto-exposure (camera adjusts exposure automatically)
+cam.set_exposure_auto("Continuous");
+
+// Adjust once, then return to fixed exposure
+cam.set_exposure_auto("Once");
+
+// Disable auto-exposure — required before set_exposure() takes effect
+cam.set_exposure_auto("Off");
+cam.set_exposure(5000.f);   // now manual: 5 ms
+```
+
+### Auto gain
+
+```cpp
+cam.set_gain_auto("Continuous");   // continuously adjusts gain
+cam.set_gain_auto("Once");         // adjust once, then lock
+cam.set_gain_auto("Off");          // disable — required before set_gain()
+cam.set_gain(3.f);                 // now manual: 3 dB
+```
+
+> **Note:** `ExposureAuto` and `GainAuto` must be set to `"Off"` before writing manual values via `set_exposure()` or `set_gain()`. Most cameras silently ignore manual writes while auto mode is active.
+
+### Check current auto mode
+
+Auto-mode state is included in `cam.info()`:
+
+```cpp
+auto info = cam.info(0);
+if (info) {
+    std::printf("ExposureAuto : %s\n", info->exposure_auto.c_str());  // "Off" / "Once" / "Continuous"
+    std::printf("GainAuto     : %s\n", info->gain_auto.c_str());
+}
+```
+
 ### Region of Interest (ROI)
 
 Always reset offsets to zero before changing dimensions — the helper does this automatically:
@@ -423,6 +460,8 @@ Returned by `cam.info(camera_id)`.
 | `frame_rate` | `float` | Configured frame rate |
 | `fps` | `float` | Measured actual frame rate |
 | `acquiring` | `bool` | Whether acquisition is active |
+| `exposure_auto` | `std::string` | `"Off"` / `"Once"` / `"Continuous"` |
+| `gain_auto` | `std::string` | `"Off"` / `"Once"` / `"Continuous"` |
 
 ### `GigeSystemState`
 
@@ -447,12 +486,14 @@ Returned by `cam.state()`.
 | `grab_any()` | `optional<GigeFrame>` | Latest frame from any camera |
 | `grab_wait(cam, last_ts, timeout_ms)` | `optional<GigeFrame>` | Block until new frame or timeout |
 | `grab_any_wait(last_ts, timeout_ms)` | `optional<GigeFrame>` | Block until new frame from any camera |
-| `set_exposure(us, camera_id=-1)` | `bool` | Exposure in microseconds |
-| `set_gain(db, camera_id=-1)` | `bool` | Gain in dB |
+| `set_exposure(us, camera_id=-1)` | `bool` | Exposure in microseconds (requires `ExposureAuto="Off"`) |
+| `set_gain(db, camera_id=-1)` | `bool` | Gain in dB (requires `GainAuto="Off"`) |
 | `set_gamma(gamma, camera_id=-1)` | `bool` | Gamma correction value |
 | `set_frame_rate(fps, camera_id=-1)` | `bool` | Acquisition frame rate |
 | `set_roi(w, h, ox, oy, camera_id=-1)` | `bool` | Region of interest |
-| `set_param(name, float_val, int_val, camera_id=-1)` | `bool` | Any GenICam node by name |
+| `set_exposure_auto(mode, camera_id=-1)` | `bool` | `"Off"` / `"Once"` / `"Continuous"` |
+| `set_gain_auto(mode, camera_id=-1)` | `bool` | `"Off"` / `"Once"` / `"Continuous"` |
+| `set_param(name, float_val, int_val, camera_id=-1, string_val="")` | `bool` | Any GenICam node by name |
 | `save_next(camera_id=-1)` | `void` | Queue next frame for JPEG disk save |
 | `set_save_dir(path)` | `bool` | Change the server's save directory |
 

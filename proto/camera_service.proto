@@ -55,13 +55,16 @@ message CameraState {
   float  gamma       = 15;
   float  black_level = 16;
   float  frame_rate  = 17;  // AcquisitionFrameRate; 0 if node unavailable
+  string exposure_auto = 18;  // "Off" | "Once" | "Continuous"
+  string gain_auto     = 19;  // "Off" | "Once" | "Continuous"
 }
 
 message ParameterRequest {
-  int32  camera_id   = 1;  // -1 = all cameras
-  string param_name  = 2;
-  float  float_value = 3;
-  int32  int_value   = 4;
+  int32  camera_id    = 1;  // -1 = all cameras
+  string param_name   = 2;
+  float  float_value  = 3;
+  int32  int_value    = 4;
+  string string_value = 5;  // for enumeration nodes (e.g. "Continuous", "Off", "Once")
 }
 
 message SaveDirectoryRequest {

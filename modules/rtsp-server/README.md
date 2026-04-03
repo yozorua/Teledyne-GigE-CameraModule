@@ -63,6 +63,36 @@ ffplay rtsp://localhost:8554/stream
 vlc    rtsp://localhost:8555/stream
 ```
 
+## Adjusting exposure and gain for the stream
+
+The RTSP server streams whatever pixels `GigECameraModule` puts in shared memory — it does not control the camera itself. To adjust brightness, use the debug client or the C++ wrapper to set parameters on the running module **before or while streaming**.
+
+**Enable auto-exposure / auto-gain (recommended for varying lighting):**
+```bat
+GigEDebugClient.exe localhost:50051
+
+camera> set ExposureAuto 0 0 Continuous
+camera> set GainAuto     0 0 Continuous
+```
+The camera will start adjusting within a few frames. Changes appear in the VLC/ffplay window immediately — no restart needed.
+
+**Lock in a specific exposure (consistent/controlled lighting):**
+```bat
+camera> set ExposureAuto 0 0 Off
+camera> set ExposureTime 8000.0 0    # 8 ms
+camera> set GainAuto     0 0 Off
+camera> set Gain         2.0 0       # 2 dB
+```
+
+**Check current values while streaming:**
+```bat
+camera> cameras
+  exposure   : 6241.0 us  [auto: Continuous]
+  gain       : 1.80 dB    [auto: Continuous]
+```
+
+---
+
 ## Architecture
 
 ```

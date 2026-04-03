@@ -77,7 +77,8 @@ grpc::Status CameraControlServiceImpl::SetParameter(
     camaramodule::CommandStatus*          resp)
 {
     const bool ok = cam_mgr_.SetParameter(
-        req->param_name(), req->float_value(), req->int_value(), req->camera_id());
+        req->param_name(), req->float_value(), req->int_value(),
+        req->camera_id(), req->string_value());
     resp->set_success(ok);
     resp->set_message(ok ? "Parameter set." : "Parameter not found or not writable.");
     return grpc::Status::OK;
@@ -142,6 +143,8 @@ grpc::Status CameraControlServiceImpl::GetCameraInfo(
     resp->set_gamma(info.gamma);
     resp->set_black_level(info.black_level);
     resp->set_frame_rate(info.frame_rate);
+    resp->set_exposure_auto(info.exposure_auto);
+    resp->set_gain_auto(info.gain_auto);
     return grpc::Status::OK;
 }
 

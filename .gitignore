@@ -4,3 +4,17 @@ dist.zip
 CLAUDE.md
 .claude/settings.local.json
 modules/rtsp-server/build
+build/.ninja_depss
+build/.ninja_log
+build/GigECameraModule.exe
+build/GigEDebugClient.exe
+build/CMakeFiles/GigECameraModule.dir/generated/camera_service.grpc.pb.cc.obj
+build/CMakeFiles/GigECameraModule.dir/generated/camera_service.pb.cc.obj
+build/CMakeFiles/GigECameraModule.dir/src/GrpcServer.cpp.obj
+build/CMakeFiles/GigECameraModule.dir/src/main.cpp.obj
+build/CMakeFiles/GigECameraModule.dir/src/SpinnakerCameraManager.cpp.obj
+build/CMakeFiles/GigEDebugClient.dir/generated/camera_service.grpc.pb.cc.obj
+build/CMakeFiles/GigEDebugClient.dir/generated/camera_service.pb.cc.obj
+build/CMakeFiles/GigEDebugClient.dir/src/debug_client.cpp.obj
+build/generated/camera_service.pb.cc
+build/generated/camera_service.pb.h

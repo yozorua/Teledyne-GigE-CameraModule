@@ -88,21 +88,36 @@ Proto package: **`camaramodule`** (note spelling)
 
 ### Settable Parameters (`SetParameter`)
 
-Pass float nodes via `float_value`; integer nodes via `int_value`.
+The server resolves node type in this order: enumeration (if `string_value` is non-empty) → float → integer.
 
-| `param_name` | Type | Description |
+**Enumeration nodes** — pass entry name via `string_value`:
+
+| `param_name` | Valid values | Notes |
 |---|---|---|
-| `ExposureTime` | float | Exposure in microseconds |
-| `Gain` | float | Gain in dB |
-| `Gamma` | float | Gamma correction (typically 0.5–4.0) |
-| `BlackLevel` | float | Black level offset |
-| `AcquisitionFrameRate` | float | Target frame rate (FPS) |
-| `Width` | int | ROI width (pixels) |
-| `Height` | int | ROI height (pixels) |
-| `OffsetX` | int | ROI horizontal offset |
-| `OffsetY` | int | ROI vertical offset |
-| `BinningHorizontal` | int | Horizontal binning factor |
-| `BinningVertical` | int | Vertical binning factor |
+| `ExposureAuto` | `"Off"` `"Once"` `"Continuous"` | Must be `"Off"` before writing `ExposureTime` |
+| `GainAuto` | `"Off"` `"Once"` `"Continuous"` | Must be `"Off"` before writing `Gain` |
+| `BalanceWhiteAuto` | `"Off"` `"Once"` `"Continuous"` | Color cameras only |
+
+**Float nodes** — pass value via `float_value`:
+
+| `param_name` | Description |
+|---|---|
+| `ExposureTime` | Exposure in microseconds (requires `ExposureAuto = "Off"`) |
+| `Gain` | Gain in dB (requires `GainAuto = "Off"`) |
+| `Gamma` | Gamma correction (typically 0.5–4.0) |
+| `BlackLevel` | Black level offset |
+| `AcquisitionFrameRate` | Target frame rate (FPS) |
+
+**Integer nodes** — pass value via `int_value`:
+
+| `param_name` | Description |
+|---|---|
+| `Width` | ROI width (pixels) |
+| `Height` | ROI height (pixels) |
+| `OffsetX` | ROI horizontal offset |
+| `OffsetY` | ROI vertical offset |
+| `BinningHorizontal` | Horizontal binning factor |
+| `BinningVertical` | Vertical binning factor |
 
 ---
 

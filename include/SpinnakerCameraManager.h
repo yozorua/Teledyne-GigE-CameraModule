@@ -64,6 +64,8 @@ struct CameraInfo {
     float       gamma{1.0f};
     float       black_level{0.0f};
     float       frame_rate{0.0f};   // AcquisitionFrameRate; 0 if node unavailable
+    std::string exposure_auto;      // "Off" | "Once" | "Continuous"
+    std::string gain_auto;          // "Off" | "Once" | "Continuous"
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -97,12 +99,16 @@ public:
     // ── Parameter control ─────────────────────────────────────────────────────
 
     /// Sets a GenICam node on the specified camera (or all cameras if -1).
-    /// Float-typed nodes receive @p float_value; integer-typed nodes receive
-    /// @p int_value.  Returns true if at least one camera accepted the change.
+    /// - Enumeration nodes (ExposureAuto, GainAuto, …): pass the entry name in
+    ///   @p string_value (e.g. "Continuous", "Once", "Off").
+    /// - Float nodes (ExposureTime, Gain, …): pass @p float_value.
+    /// - Integer nodes (Width, Height, …): pass @p int_value.
+    /// Returns true if at least one camera accepted the change.
     bool SetParameter(const std::string& param_name,
                       float              float_value,
                       int32_t            int_value,
-                      int32_t            camera_id = -1);
+                      int32_t            camera_id    = -1,
+                      const std::string& string_value = {});
 
     // ── Disk save ─────────────────────────────────────────────────────────────
 

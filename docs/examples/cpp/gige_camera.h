@@ -158,6 +158,8 @@ struct GigeCameraInfo {
     float       frame_rate{0.f};
     float       fps{0.f};
     bool        acquiring{false};
+    std::string exposure_auto;  ///< "Off" | "Once" | "Continuous"
+    std::string gain_auto;      ///< "Off" | "Once" | "Continuous"
 };
 
 /// Module-level health snapshot.
@@ -251,9 +253,11 @@ public:
         out.gain_db     = resp.gain_db();
         out.gamma       = resp.gamma();
         out.black_level = resp.black_level();
-        out.frame_rate  = resp.frame_rate();
-        out.fps         = resp.fps();
-        out.acquiring   = resp.acquiring();
+        out.frame_rate    = resp.frame_rate();
+        out.fps           = resp.fps();
+        out.acquiring     = resp.acquiring();
+        out.exposure_auto = resp.exposure_auto();
+        out.gain_auto     = resp.gain_auto();
         return out;
     }
 
@@ -357,6 +361,28 @@ public:
     }
 
     /**
+     * Set auto-exposure mode.
+     *
+     * @param mode       "Off"        — fixed exposure (use set_exposure() to set value)
+     *                   "Once"       — adjust once, then revert to Off
+     *                   "Continuous" — continuously adjusts exposure
+     * @param camera_id  0-based index, or -1 for all cameras.
+     */
+    bool set_exposure_auto(const std::string& mode, int32_t camera_id = -1) {
+        return set_enum("ExposureAuto", mode, camera_id);
+    }
+
+    /**
+     * Set auto-gain mode.
+     *
+     * @param mode       "Off" | "Once" | "Continuous"
+     * @param camera_id  0-based index, or -1 for all cameras.
+     */
+    bool set_gain_auto(const std::string& mode, int32_t camera_id = -1) {
+        return set_enum("GainAuto", mode, camera_id);
+    }
+
+    /**
      * Set region of interest.
      *
      * Resets offsets to zero first, then applies width/height, then offsets,
@@ -379,13 +405,16 @@ public:
     /**
      * Set any GenICam node by name.
      *
-     * Use float_value for analogue nodes (ExposureTime, Gain, Gamma, …).
-     * Use int_value for integer nodes (Width, Height, OffsetX, …).
+     * - Enumeration nodes (ExposureAuto, GainAuto, …): pass the entry name
+     *   in string_value (e.g. "Continuous", "Once", "Off").
+     * - Float nodes (ExposureTime, Gain, Gamma, …): pass float_value.
+     * - Integer nodes (Width, Height, OffsetX, …): pass int_value.
      */
     bool set_param(const std::string& name,
-                   float   float_value = 0.f,
-                   int32_t int_value   = 0,
-                   int32_t camera_id   = -1)
+                   float              float_value  = 0.f,
+                   int32_t            int_value    = 0,
+                   int32_t            camera_id    = -1,
+                   const std::string& string_value = {})
     {
         grpc::ClientContext ctx;
         camaramodule::ParameterRequest req;
@@ -394,6 +423,7 @@ public:
         req.set_param_name(name);
         req.set_float_value(float_value);
         req.set_int_value(int_value);
+        req.set_string_value(string_value);
         stub_->SetParameter(&ctx, req, &resp);
         return resp.success();
     }
@@ -474,6 +504,10 @@ private:
 
     bool set_int(const std::string& name, int32_t value, int32_t camera_id) {
         return set_param(name, 0.f, value, camera_id);
+    }
+
+    bool set_enum(const std::string& name, const std::string& entry, int32_t camera_id) {
+        return set_param(name, 0.f, 0, camera_id, entry);
     }
 
     std::shared_ptr<grpc::Channel>                     channel_;

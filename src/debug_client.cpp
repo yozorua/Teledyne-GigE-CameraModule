@@ -218,8 +218,9 @@ public:
     }
 
     /// camera_id = -1 means all cameras.
+    /// Pass a non-empty sval to set enumeration nodes (ExposureAuto, GainAuto, …).
     void SetParameter(const std::string& name, float fval, int32_t ival,
-                      int32_t camera_id = -1) {
+                      int32_t camera_id = -1, const std::string& sval = {}) {
         camaramodule::ParameterRequest req;
         camaramodule::CommandStatus    resp;
         grpc::ClientContext            ctx;
@@ -227,6 +228,7 @@ public:
         req.set_param_name(name);
         req.set_float_value(fval);
         req.set_int_value(ival);
+        req.set_string_value(sval);
         auto st = stub_->SetParameter(&ctx, req, &resp);
         if (!st.ok()) { PrintRpcError(st); return; }
         PrintStatus(resp);
@@ -336,8 +338,10 @@ private:
                   << "  resolution : " << s.width() << "x" << s.height()                          << '\n'
                   << "  ROI offset : " << s.offset_x() << ", " << s.offset_y()                    << '\n'
                   << "  binning    : " << s.binning_h() << "x" << s.binning_v()                   << '\n'
-                  << "  exposure   : " << s.exposure_us() << " us\n"
-                  << "  gain       : " << s.gain_db()     << " dB\n"
+                  << "  exposure   : " << s.exposure_us() << " us"
+                  << "  [auto: " << (s.exposure_auto().empty() ? "?" : s.exposure_auto()) << "]\n"
+                  << "  gain       : " << s.gain_db()     << " dB"
+                  << "  [auto: " << (s.gain_auto().empty()     ? "?" : s.gain_auto())     << "]\n"
                   << "  gamma      : " << s.gamma()       << '\n'
                   << "  black lvl  : " << s.black_level() << '\n'
                   << "  frame rate : " << (s.frame_rate() > 0.0f
@@ -366,11 +370,14 @@ Camera info:
   info <cam_id>                 Show state for one camera (model, IP, ROI, …)
 
 Parameter control:
-  set <name> <float> <int>      Set GenICam node on ALL cameras
-  set <cam_id> <name> <f> <i>  Set GenICam node on one camera
-                                  e.g.  set ExposureTime 5000.0 0
-                                        set 0 Gain 10.0 0
-                                        set -1 Width 0 1920
+  set <name> <float> <int> [str]           Set GenICam node on ALL cameras
+  set <cam_id> <name> <f> <i> [str]       Set GenICam node on one camera
+    Float nodes:   set ExposureTime 5000.0 0
+                   set 0 Gain 10.0 0
+    Integer nodes: set -1 Width 0 1920
+    Enum nodes:    set ExposureAuto 0 0 Continuous
+                   set GainAuto 0 0 Off
+                   set 0 ExposureAuto 0 0 Once
 
 Disk save:
   save [cam_id]                 Flag next JPEG frame for disk write (-1 or omit = any camera)
@@ -455,11 +462,14 @@ int main(int argc, char* argv[]) {
 
         if (cmd == "set") {
             // Syntax:
-            //   set <name> <float> <int>           — all cameras
-            //   set <cam_id> <name> <float> <int>  — one camera (cam_id is integer)
+            //   set <name> <float> <int> [string]           — all cameras
+            //   set <cam_id> <name> <float> <int> [string]  — one camera
+            // string is optional: supply it for enumeration nodes
+            //   e.g.  set ExposureAuto 0 0 Continuous
+            //         set 0 GainAuto 0 0 Off
             std::string token;
             if (!(ss >> token)) {
-                std::cerr << "  Usage: set [cam_id] <node_name> <float_value> <int_value>\n";
+                std::cerr << "  Usage: set [cam_id] <node_name> <float> <int> [string]\n";
                 continue;
             }
 
@@ -470,7 +480,7 @@ int main(int argc, char* argv[]) {
             try {
                 camera_id = std::stoi(token);
                 if (!(ss >> name)) {
-                    std::cerr << "  Usage: set [cam_id] <node_name> <float_value> <int_value>\n";
+                    std::cerr << "  Usage: set [cam_id] <node_name> <float> <int> [string]\n";
                     continue;
                 }
             } catch (...) {
@@ -481,10 +491,15 @@ int main(int argc, char* argv[]) {
             float   fval = 0.0f;
             int32_t ival = 0;
             if (!(ss >> fval >> ival)) {
-                std::cerr << "  Usage: set [cam_id] <node_name> <float_value> <int_value>\n";
+                std::cerr << "  Usage: set [cam_id] <node_name> <float> <int> [string]\n";
                 continue;
             }
-            client.SetParameter(name, fval, ival, camera_id);
+
+            // Optional string_value for enumeration nodes.
+            std::string sval;
+            ss >> sval;
+
+            client.SetParameter(name, fval, ival, camera_id, sval);
             continue;
         }
 

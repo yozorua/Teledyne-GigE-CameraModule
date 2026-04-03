@@ -510,7 +510,8 @@ void SpinnakerCameraManager::RecordFrameTime(int32_t camera_id) {
 bool SpinnakerCameraManager::SetParameter(const std::string& param_name,
                                           float              float_value,
                                           int32_t            int_value,
-                                          int32_t            camera_id) {
+                                          int32_t            camera_id,
+                                          const std::string& string_value) {
     using namespace Spinnaker::GenApi;
 
     bool any_success = false;
@@ -523,7 +524,32 @@ bool SpinnakerCameraManager::SetParameter(const std::string& param_name,
 
         INodeMap& nm = camera->GetNodeMap();
 
-        // Try as float (CFloatPtr covers ExposureTime, Gain, Gamma, …)
+        // ── Enumeration node (ExposureAuto, GainAuto, BalanceWhiteAuto, …) ──────
+        // Tried first when the caller supplies a non-empty string_value.
+        if (!string_value.empty()) {
+            CEnumerationPtr node = nm.GetNode(param_name.c_str());
+            if (IsAvailable(node) && IsWritable(node)) {
+                try {
+                    CEnumEntryPtr entry = node->GetEntryByName(string_value.c_str());
+                    if (IsAvailable(entry) && IsReadable(entry)) {
+                        node->SetIntValue(entry->GetValue());
+                        any_success = true;
+                        continue;
+                    } else {
+                        std::cerr << "[SetParameter] Enum entry '" << string_value
+                                  << "' not available for '" << param_name
+                                  << "' on cam " << i << '\n';
+                    }
+                } catch (const Spinnaker::Exception& ex) {
+                    std::cerr << "[SetParameter] Enum set failed for '"
+                              << param_name << "' on cam " << i
+                              << ": " << ex.what() << '\n';
+                }
+                continue;  // node exists as enum — don't fall through to float/int
+            }
+        }
+
+        // ── Float node (ExposureTime, Gain, Gamma, …) ─────────────────────────
         {
             CFloatPtr node = nm.GetNode(param_name.c_str());
             if (IsAvailable(node) && IsWritable(node)) {
@@ -543,7 +569,7 @@ bool SpinnakerCameraManager::SetParameter(const std::string& param_name,
             }
         }
 
-        // Try as integer (CIntegerPtr covers Width, Height, OffsetX, …)
+        // ── Integer node (Width, Height, OffsetX, …) ──────────────────────────
         {
             CIntegerPtr node = nm.GetNode(param_name.c_str());
             if (IsAvailable(node) && IsWritable(node)) {
@@ -606,6 +632,13 @@ bool SpinnakerCameraManager::GetCameraInfo(int32_t camera_id, CameraInfo& info) 
         return 0.0f;
     };
 
+    auto readEnum = [&](const char* node_name) -> std::string {
+        CEnumerationPtr p = nm.GetNode(node_name);
+        if (IsAvailable(p) && IsReadable(p))
+            return std::string(p->GetCurrentEntry()->GetSymbolic().c_str());
+        return {};
+    };
+
     info.model_name = readStr("DeviceModelName");
     info.serial     = readStr("DeviceSerialNumber");
 
@@ -638,11 +671,13 @@ bool SpinnakerCameraManager::GetCameraInfo(int32_t camera_id, CameraInfo& info) 
         info.binning_v = readBinning("BinningVertical",   "BinningY");
     }
 
-    info.exposure_us = readFloat("ExposureTime");
-    info.gain_db     = readFloat("Gain");
-    info.gamma       = readFloat("Gamma");
-    info.black_level = readFloat("BlackLevel");
-    info.frame_rate  = readFloat("AcquisitionFrameRate");
+    info.exposure_us   = readFloat("ExposureTime");
+    info.gain_db       = readFloat("Gain");
+    info.gamma         = readFloat("Gamma");
+    info.black_level   = readFloat("BlackLevel");
+    info.frame_rate    = readFloat("AcquisitionFrameRate");
+    info.exposure_auto = readEnum("ExposureAuto");
+    info.gain_auto     = readEnum("GainAuto");
 
     return true;
 }
