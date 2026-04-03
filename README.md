@@ -345,28 +345,48 @@ See `proto/camera_service.proto`.  Package name: `camaramodule`.
 | `offset_x` / `offset_y` | `OffsetX` / `OffsetY` | int | ROI top-left corner |
 | `binning_h` / `binning_v` | `BinningHorizontal` / `BinningVertical` | int | 1 = no binning |
 | `exposure_us` | `ExposureTime` | float | Microseconds |
+| `exposure_auto` | `ExposureAuto` | string | `"Off"` / `"Once"` / `"Continuous"` |
 | `gain_db` | `Gain` | float | dB |
+| `gain_auto` | `GainAuto` | string | `"Off"` / `"Once"` / `"Continuous"` |
+| `gamma` | `Gamma` | float | |
+| `black_level` | `BlackLevel` | float | |
+| `frame_rate` | `AcquisitionFrameRate` | float | 0 if node unavailable |
 | `fps` | — | float | Computed from per-camera frame timestamps (last 30 frames) |
 | `acquiring` | — | bool | Whether the acquisition thread is currently running |
 
 ### `SetParameter` — settable GenICam nodes
 
-`SetParameter` accepts any writable GenICam node name.  The implementation tries `CFloatPtr` first, then `CIntegerPtr`.  Common nodes:
+`SetParameter` accepts any writable GenICam node name. Node type is resolved in this order: enumeration (when `string_value` is non-empty) → float → integer.
 
-| Node name | Type | Notes |
+**Enumeration nodes** — pass the entry name in `string_value`:
+
+| Node name | Valid values | Notes |
 |---|---|---|
-| `ExposureTime` | float | Microseconds; camera must have auto-exposure off |
-| `Gain` | float | dB |
-| `Gamma` | float | Typically 0.25–4.0 |
-| `BlackLevel` | float | |
-| `AcquisitionFrameRate` | float | Requires `AcquisitionFrameRateEnable = true` |
-| `Width` / `Height` | int | ROI size; must stop acquisition first on most cameras |
-| `OffsetX` / `OffsetY` | int | ROI top-left; must stop acquisition first |
-| `BinningHorizontal` / `BinningVertical` | int | Also `BinningX` / `BinningY` on some models |
-| `GevSCPSPacketSize` | int | Set to 9000 for jumbo frames (auto-applied on start) |
-| `DeviceLinkThroughputLimit` | int | Bytes/s; auto-applied per camera on start |
+| `ExposureAuto` | `"Off"` `"Once"` `"Continuous"` | Must be `"Off"` before writing `ExposureTime` |
+| `GainAuto` | `"Off"` `"Once"` `"Continuous"` | Must be `"Off"` before writing `Gain` |
+| `BalanceWhiteAuto` | `"Off"` `"Once"` `"Continuous"` | Color cameras only |
 
-Nodes that require acquisition to be stopped (ROI, binning) must be set after calling `StopAcquisition` and before the next `StartAcquisition`.  Float-only nodes (e.g. `ExposureTime`) can be changed live.
+**Float nodes** — pass value in `float_value`:
+
+| Node name | Notes |
+|---|---|
+| `ExposureTime` | Microseconds; requires `ExposureAuto = "Off"` |
+| `Gain` | dB; requires `GainAuto = "Off"` |
+| `Gamma` | Typically 0.25–4.0 |
+| `BlackLevel` | |
+| `AcquisitionFrameRate` | Requires `AcquisitionFrameRateEnable = true` |
+
+**Integer nodes** — pass value in `int_value`:
+
+| Node name | Notes |
+|---|---|
+| `Width` / `Height` | ROI size; must stop acquisition first on most cameras |
+| `OffsetX` / `OffsetY` | ROI top-left; must stop acquisition first |
+| `BinningHorizontal` / `BinningVertical` | Also `BinningX` / `BinningY` on some models |
+| `GevSCPSPacketSize` | Set to 9000 for jumbo frames (auto-applied on start) |
+| `DeviceLinkThroughputLimit` | Bytes/s; auto-applied per camera on start |
+
+ROI and binning nodes require acquisition to be stopped first. Float nodes (e.g. `ExposureTime`, `Gain`) can be changed live.
 
 ---
 
