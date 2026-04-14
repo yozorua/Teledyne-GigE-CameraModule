@@ -74,3 +74,8 @@ endmacro()
 # ─────────────────────────────────────────────────────────────────────────────
 add_gige_example(simple_grab      simple_grab.cpp)
 add_gige_example(camera_control   camera_control.cpp)
+
+# multi_camera_test reads the SHM header directly — needs the project include dir.
+add_gige_example(multi_camera_test multi_camera_test.cpp)
+target_include_directories(multi_camera_test PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../include")

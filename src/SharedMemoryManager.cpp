@@ -87,12 +87,26 @@ void SharedMemoryManager::Shutdown() {
 // Producer API
 // ─────────────────────────────────────────────────────────────────────────────
 
-int32_t SharedMemoryManager::ClaimFreeBuffer() {
-    const int32_t latest = header_->latest_buffer_index.load(std::memory_order_acquire);
-    const int32_t start  = (latest >= 0) ? (latest + 1) % POOL_SIZE : 0;
+int32_t SharedMemoryManager::ClaimFreeBuffer(int32_t camera_id) {
+    // Each camera owns an exclusive, non-overlapping slice of the pool.
+    // This makes cross-camera buffer recycling structurally impossible:
+    // camera 1 can never claim a slot that latest_buffer_per_camera[0] still
+    // points to, which eliminates the routing race entirely.
+    static_assert(POOL_SIZE % MAX_CAMERAS == 0,
+                  "POOL_SIZE must be divisible by MAX_CAMERAS");
+    const int32_t slots_per_cam = POOL_SIZE / MAX_CAMERAS;
+    const int32_t range_start   = camera_id * slots_per_cam;
 
-    for (int32_t i = 0; i < POOL_SIZE; ++i) {
-        const int32_t candidate = (start + i) % POOL_SIZE;
+    // Round-robin within this camera's range, starting after the slot it last
+    // published so we avoid immediately overwriting the most recent frame.
+    const int32_t last = header_->latest_buffer_per_camera[camera_id].load(
+        std::memory_order_acquire);
+    const int32_t offset = (last >= range_start && last < range_start + slots_per_cam)
+                         ? (last - range_start + 1) % slots_per_cam
+                         : 0;
+
+    for (int32_t i = 0; i < slots_per_cam; ++i) {
+        const int32_t candidate = range_start + (offset + i) % slots_per_cam;
         int32_t expected = 0;
 
         if (header_->reference_counts[candidate].compare_exchange_strong(
@@ -178,11 +192,30 @@ int32_t SharedMemoryManager::AcquireLatestFrame(int32_t camera_id) {
             if (camera_id >= MAX_CAMERAS) return -1;
             index = header_->latest_buffer_per_camera[camera_id].load(std::memory_order_acquire);
             if (index < 0 || index >= POOL_SIZE) return -1;
+
+            // Structural range check: with per-camera pool partitioning, a
+            // valid slot for camera_id must lie in its exclusive range.  A
+            // stale pointer left over from before partitioning was enforced
+            // would fail here immediately without needing to pin.
+            const int32_t slots_per_cam = POOL_SIZE / MAX_CAMERAS;
+            if (index < camera_id * slots_per_cam ||
+                index >= (camera_id + 1) * slots_per_cam) {
+                return -1;
+            }
+
             int32_t result = PinBuffer(header_, index,
                                        header_->latest_buffer_per_camera[camera_id]);
-            if (result >= 0) return result;
+            if (result < 0) continue;
+
+            // Final safety check: buffer_camera_id must match.  With exclusive
+            // per-camera slots this should always pass; kept as a hard guard.
+            if (header_->buffer_camera_id[index] != camera_id) {
+                header_->reference_counts[index].fetch_sub(1, std::memory_order_release);
+                continue;
+            }
+            return result;
         }
-        // Both paths can fall through here if the index changed mid-CAS; retry.
+        // Falls through only when the any-camera path's PinBuffer failed; retry.
     }
     return -1;
 }

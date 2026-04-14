@@ -119,9 +119,9 @@ bool H264Encoder::Init(int width, int height, int fps, int bitrate_kbps) {
 
     pkt_ = av_packet_alloc();
 
-    // ── swscale: RGB24 → YUV420P ──────────────────────────────────────────────
+    // ── swscale: BGR24 → YUV420P ──────────────────────────────────────────────
     sws_ = sws_getContext(
-        width, height, AV_PIX_FMT_RGB24,
+        width, height, AV_PIX_FMT_BGR24,
         width, height, AV_PIX_FMT_YUV420P,
         SWS_BILINEAR, nullptr, nullptr, nullptr);
     if (!sws_) {

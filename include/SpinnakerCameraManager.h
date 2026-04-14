@@ -188,6 +188,12 @@ private:
     static constexpr int32_t  SAVE_IDLE = -2;
     std::atomic<int32_t>      pending_save_camera_id_{SAVE_IDLE};
 
+    // ── Per-camera channel order ──────────────────────────────────────────────
+    // true (default) = swap R↔B after RGB8 debayer → BGR8 in SHM.
+    // false          = keep RGB8 as-is.
+    // Controlled at runtime via SetParameter("ChannelOrder", …, "BGR"/"RGB").
+    std::atomic<bool> swap_rb_[MAX_CAMERAS]{};
+
     // ── Per-camera FPS tracking ───────────────────────────────────────────────
     static constexpr std::size_t FPS_WINDOW = 30;
     std::atomic<float>  camera_fps_[MAX_CAMERAS]{};

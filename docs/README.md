@@ -51,22 +51,28 @@ Offset 0                    SharedMemoryHeader (368 bytes)
   ├─ image_width / height       int32                SHM max allocation size
   ├─ image_channels             int32                always 1 (Mono8) unless changed
   ├─ single_image_size          size_t               bytes per buffer slot
-  ├─ pool_size                  int32                always 20
+  ├─ pool_size                  int32                always 32
   ├─ num_cameras                int32
-  ├─ buffer_camera_id[20]       int32[]              which camera wrote each slot
-  ├─ buffer_width[20]           int32[]              actual ROI width per slot
-  ├─ buffer_height[20]          int32[]              actual ROI height per slot
-  └─ reference_counts[20]       atomic<int32>[]      -1=writing, 0=free, N=readers
+  ├─ buffer_camera_id[32]       int32[]              which camera wrote each slot
+  ├─ buffer_width[32]           int32[]              actual ROI width per slot
+  ├─ buffer_height[32]          int32[]              actual ROI height per slot
+  └─ reference_counts[32]       atomic<int32>[]      -1=writing, 0=free, N=readers
 
 Offset 368                  Pixel data pool
   ├─ slot 0                     single_image_size bytes
   ├─ slot 1                     single_image_size bytes
-  └─ ...  (20 slots total)
+  └─ ...  (32 slots total, 8 per camera)
 ```
 
 > **Important:** Use `buffer_width[idx]` and `buffer_height[idx]`, not
 > `image_width`/`image_height`, to determine actual pixel dimensions.  They
 > differ when the camera ROI has been changed at runtime.
+
+> **Slot partitioning:** The 32 slots are divided into 8 exclusive slots per
+> camera — camera 0 uses slots 0–7, camera 1 uses slots 8–15, camera 2 uses
+> slots 16–23, camera 3 uses slots 24–31.  A camera never writes outside its
+> own range, so `latest_buffer_per_camera[N]` can only point to data produced
+> by camera N.
 
 ---
 
@@ -97,6 +103,7 @@ The server resolves node type in this order: enumeration (if `string_value` is n
 | `ExposureAuto` | `"Off"` `"Once"` `"Continuous"` | Must be `"Off"` before writing `ExposureTime` |
 | `GainAuto` | `"Off"` `"Once"` `"Continuous"` | Must be `"Off"` before writing `Gain` |
 | `BalanceWhiteAuto` | `"Off"` `"Once"` `"Continuous"` | Color cameras only |
+| `ChannelOrder` | `"BGR"` `"RGB"` | Software-only (no camera node). Default `"BGR"` — R↔B swap applied after debayer. Set `"RGB"` to skip the swap. Per-camera configurable. |
 
 **Float nodes** — pass value via `float_value`:
 

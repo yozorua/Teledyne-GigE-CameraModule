@@ -10,7 +10,7 @@
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-static constexpr int32_t POOL_SIZE   = 20;  // 5 slots × MAX_CAMERAS
+static constexpr int32_t POOL_SIZE   = 32;  // 8 slots × MAX_CAMERAS
 static constexpr int32_t MAX_CAMERAS = 4;   // maximum supported cameras
 static constexpr LPCSTR  SHM_NAME    = "Global\\CameraImageBufferPool";
 
@@ -91,10 +91,18 @@ public:
 
     // ── Producer API ──────────────────────────────────────────────────────────
 
-    /// Scans the pool for a buffer whose reference_count is 0 and atomically
-    /// claims it by setting reference_count to SHM_WRITING.
-    /// @return Buffer index [0, POOL_SIZE), or -1 if every buffer is busy.
-    int32_t ClaimFreeBuffer();
+    /// Scans the pool slice reserved for @p camera_id and atomically claims a
+    /// free buffer by setting its reference_count to SHM_WRITING.
+    ///
+    /// Each camera owns an exclusive range of POOL_SIZE/MAX_CAMERAS consecutive
+    /// slots (camera 0 → slots 0‥4, camera 1 → slots 5‥9, …).  This prevents
+    /// any cross-camera buffer recycling: camera 1 can never claim a slot that
+    /// latest_buffer_per_camera[0] still points to, eliminating the race where
+    /// a consumer requesting camera 0 gets camera 1's pixels.
+    ///
+    /// @return Buffer index [camera_id * slots_per_cam, …), or -1 if all slots
+    ///         in this camera's range are busy.
+    int32_t ClaimFreeBuffer(int32_t camera_id);
 
     /// Direct pointer into shared memory for buffer @p index.
     /// Only call this after ClaimFreeBuffer() returns @p index.

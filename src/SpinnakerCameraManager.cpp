@@ -37,7 +37,10 @@ static constexpr uint32_t GRAB_TIMEOUT_MS = 1000;
 // ─────────────────────────────────────────────────────────────────────────────
 
 SpinnakerCameraManager::SpinnakerCameraManager(SharedMemoryManager& shm)
-    : shm_(shm) {}
+    : shm_(shm) {
+    for (int i = 0; i < MAX_CAMERAS; ++i)
+        swap_rb_[i].store(true, std::memory_order_relaxed);  // default: BGR output
+}
 
 SpinnakerCameraManager::~SpinnakerCameraManager() {
     Shutdown();
@@ -247,16 +250,43 @@ void SpinnakerCameraManager::ConfigureCamera(Spinnaker::CameraPtr& camera) {
 
 void SpinnakerCameraManager::CameraAcquisitionThread(Spinnaker::CameraPtr camera,
                                                      int32_t             camera_id) {
+    // Stop the acquisition loop after this many consecutive GetNextImage
+    // failures.  A single transient timeout is normal; a long run of failures
+    // means the camera stream is dead and continuing to hammer it will not help.
+    static constexpr int MAX_CONSECUTIVE_ERRORS = 10;
+    int consecutive_errors = 0;
+
     while (camera_acquiring_[camera_id].load(std::memory_order_acquire)) {
 
         // ── Grab next image (blocks for up to GRAB_TIMEOUT_MS) ───────────────
         Spinnaker::ImagePtr image;
         try {
             image = camera->GetNextImage(GRAB_TIMEOUT_MS);
+            consecutive_errors = 0;  // reset on success
         } catch (const Spinnaker::Exception& ex) {
             std::cerr << "[Acquisition " << camera_id << "] GetNextImage: "
                       << ex.what() << '\n';
+            if (++consecutive_errors >= MAX_CONSECUTIVE_ERRORS) {
+                std::cerr << "[Acquisition " << camera_id << "] "
+                          << MAX_CONSECUTIVE_ERRORS
+                          << " consecutive errors — stopping acquisition.\n";
+                camera_acquiring_[camera_id].store(false, std::memory_order_release);
+                break;
+            }
             continue;
+        } catch (const std::exception& ex) {
+            // Non-Spinnaker exception from a dead stream — log and stop.
+            // Without this catch the exception would propagate out of the
+            // std::thread function and call std::terminate, killing the process.
+            std::cerr << "[Acquisition " << camera_id << "] Fatal exception: "
+                      << ex.what() << " — stopping acquisition.\n";
+            camera_acquiring_[camera_id].store(false, std::memory_order_release);
+            break;
+        } catch (...) {
+            std::cerr << "[Acquisition " << camera_id
+                      << "] Unknown fatal exception — stopping acquisition.\n";
+            camera_acquiring_[camera_id].store(false, std::memory_order_release);
+            break;
         }
 
         if (image->IsIncomplete()) {
@@ -303,6 +333,7 @@ void SpinnakerCameraManager::DebayerThread(int32_t camera_id) {
     img_proc.SetColorProcessing(
         Spinnaker::SPINNAKER_COLOR_PROCESSING_ALGORITHM_HQ_LINEAR);
 
+    try {
     while (true) {
         RawFrame local;
 
@@ -320,7 +351,7 @@ void SpinnakerCameraManager::DebayerThread(int32_t camera_id) {
             raw_frames_[camera_id].pending = false;
         }
 
-        // ── Debayer: wrap raw bytes in a Spinnaker Image, convert to RGB8 ─────
+        // ── Debayer: wrap raw bytes in a Spinnaker Image, convert to BGR8 ──────
         // Image::Create() references the provided buffer without copying.
         // ImageProcessor::Convert() returns a new independent heap ImagePtr.
         // Neither call requires an active camera stream.
@@ -331,10 +362,37 @@ void SpinnakerCameraManager::DebayerThread(int32_t camera_id) {
             local.pixel_format,
             local.data.data());
 
+        // Log the raw pixel format once per camera so mismatches are visible.
+        {
+            static bool logged[MAX_CAMERAS] = {};
+            if (!logged[camera_id]) {
+                logged[camera_id] = true;
+                std::cout << "[Debayer cam" << camera_id << "] raw pixel format = "
+                          << raw_img->GetPixelFormatName()
+                          << " (" << static_cast<int>(local.pixel_format) << ")\n";
+            }
+        }
+
+        // Convert to RGB8 first — universally supported regardless of Bayer
+        // pattern.  Then swap R and B bytes to produce the BGR8 layout that
+        // consumers expect.  Using PixelFormat_BGR8 directly can silently
+        // produce RGB-ordered output for some Bayer patterns on certain SDK
+        // versions; the explicit swap below guarantees the correct byte order
+        // for every camera model.
         Spinnaker::ImagePtr rgb_img = img_proc.Convert(raw_img, Spinnaker::PixelFormat_RGB8);
 
+        // Optional R↔B swap: byte 0 (R) ↔ byte 2 (B) for every pixel.
+        // Controlled per-camera via SetParameter("ChannelOrder", 0, 0, cam, "BGR"/"RGB").
+        if (swap_rb_[camera_id].load(std::memory_order_relaxed)) {
+            const std::size_t pixel_count =
+                static_cast<std::size_t>(local.width) * local.height;
+            uint8_t* px = static_cast<uint8_t*>(rgb_img->GetData());
+            for (std::size_t i = 0; i < pixel_count; ++i, px += 3)
+                std::swap(px[0], px[2]);
+        }
+
         // ── Write RGB8 frame to shared memory ─────────────────────────────────
-        const int32_t buf_idx = shm_.ClaimFreeBuffer();
+        const int32_t buf_idx = shm_.ClaimFreeBuffer(camera_id);
         if (buf_idx >= 0) {
             const std::size_t rgb_bytes = rgb_img->GetImageSize();
             const std::size_t dst_bytes = shm_.GetHeader()->single_image_size;
@@ -372,9 +430,9 @@ void SpinnakerCameraManager::DebayerThread(int32_t camera_id) {
                 std::lock_guard<std::mutex> lk(save_dir_mutex_);
                 save_dir = save_directory_;
             }
-            std::ostringstream ss;
-            ss << save_dir << "/frame_cam" << camera_id << "_" << ms << ".jpg";
-            snap.save_path = ss.str();
+            std::ostringstream fname;
+            fname << "frame_cam" << camera_id << "_" << ms << ".jpg";
+            snap.save_path = (fs::path(save_dir) / fname.str()).string();
 
             {
                 std::lock_guard<std::mutex> lk(save_mutex_);
@@ -382,6 +440,12 @@ void SpinnakerCameraManager::DebayerThread(int32_t camera_id) {
             }
             save_cv_.notify_one();
         }
+    }
+    } catch (const std::exception& ex) {
+        std::cerr << "[Debayer " << camera_id << "] Fatal exception: "
+                  << ex.what() << '\n';
+    } catch (...) {
+        std::cerr << "[Debayer " << camera_id << "] Unknown fatal exception.\n";
     }
 }
 
@@ -407,9 +471,9 @@ void SpinnakerCameraManager::DiskSaveLoop() {
         }
 
         // Write JPEG via Windows Imaging Component (WIC).
-        // The pixel data in snap.data is already debayered RGB8 (3 channels,
-        // R first) from the conversion done in the acquisition thread.
-        // WIC GUID_WICPixelFormat24bppRGB expects the same R-G-B byte order.
+        // The pixel data in snap.data is BGR8 (B=byte0, G=byte1, R=byte2) —
+        // produced by the debayer thread's RGB8 conversion + R↔B swap.
+        // WIC GUID_WICPixelFormat24bppBGR expects the same B-G-R byte order.
         [&] {
             using Microsoft::WRL::ComPtr;
 
@@ -458,7 +522,7 @@ void SpinnakerCameraManager::DiskSaveLoop() {
             frame->Initialize(props.Get());
             frame->SetSize(snap.width, snap.height);
 
-            WICPixelFormatGUID fmt = GUID_WICPixelFormat24bppRGB;
+            WICPixelFormatGUID fmt = GUID_WICPixelFormat24bppBGR;
             frame->SetPixelFormat(&fmt);
 
             const UINT stride = snap.width * snap.channels;
@@ -470,7 +534,7 @@ void SpinnakerCameraManager::DiskSaveLoop() {
 
             std::cout << "[DiskSave] cam" << snap.camera_id
                       << "  " << snap.width << "x" << snap.height
-                      << "  RGB  ->  " << snap.save_path << '\n';
+                      << "  BGR  ->  " << snap.save_path << '\n';
 
             cleanup_com();
         }();
@@ -513,6 +577,22 @@ bool SpinnakerCameraManager::SetParameter(const std::string& param_name,
                                           int32_t            camera_id,
                                           const std::string& string_value) {
     using namespace Spinnaker::GenApi;
+
+    // ── Software-only parameter: ChannelOrder ─────────────────────────────────
+    // "BGR" (default) — R↔B swap after RGB8 debayer → BGR8 in SHM.
+    // "RGB"           — no swap; RGB8 written as-is.
+    if (param_name == "ChannelOrder" && !string_value.empty()) {
+        const bool do_swap = (string_value != "RGB");  // anything except "RGB" → swap
+        bool any = false;
+        for (int32_t i = 0; i < MAX_CAMERAS; ++i) {
+            if (camera_id != -1 && i != camera_id) continue;
+            swap_rb_[i].store(do_swap, std::memory_order_relaxed);
+            std::cout << "[SetParameter] cam" << i << " ChannelOrder="
+                      << (do_swap ? "BGR" : "RGB") << '\n';
+            any = true;
+        }
+        return any;
+    }
 
     bool any_success = false;
 
@@ -688,8 +768,12 @@ bool SpinnakerCameraManager::GetCameraInfo(int32_t camera_id, CameraInfo& info) 
 
 void SpinnakerCameraManager::SetSaveDirectory(const std::string& path) {
     std::lock_guard<std::mutex> lk(save_dir_mutex_);
-    save_directory_ = path;
-    std::cout << "[CameraManager] Save directory set to: " << path << '\n';
+    // Strip surrounding quotes that shells or users sometimes add (e.g. "C:\foo\bar")
+    std::string clean = path;
+    if (clean.size() >= 2 && clean.front() == '"' && clean.back() == '"')
+        clean = clean.substr(1, clean.size() - 2);
+    save_directory_ = clean;
+    std::cout << "[CameraManager] Save directory set to: " << clean << '\n';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

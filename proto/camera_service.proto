@@ -65,6 +65,7 @@ message ParameterRequest {
   float  float_value  = 3;
   int32  int_value    = 4;
   string string_value = 5;  // for enumeration nodes (e.g. "Continuous", "Off", "Once")
+                            // and software params (e.g. ChannelOrder: "BGR" | "RGB")
 }
 
 message SaveDirectoryRequest {

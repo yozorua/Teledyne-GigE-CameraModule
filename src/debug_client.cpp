@@ -378,6 +378,8 @@ Parameter control:
     Enum nodes:    set ExposureAuto 0 0 Continuous
                    set GainAuto 0 0 Off
                    set 0 ExposureAuto 0 0 Once
+    Channel order: set 0 ChannelOrder 0 0 BGR   (default: red=red, blue=blue)
+                   set 1 ChannelOrder 0 0 RGB   (skip R↔B swap for camera 1)
 
 Disk save:
   save [cam_id]                 Flag next JPEG frame for disk write (-1 or omit = any camera)
