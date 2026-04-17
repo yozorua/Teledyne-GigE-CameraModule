@@ -96,7 +96,7 @@ class GrabError(RuntimeError):
 # ─────────────────────────────────────────────────────────────────────────────
 
 _SHM_NAME       = "Global\\CameraImageBufferPool"
-_POOL_SIZE      = 20
+_POOL_SIZE      = 32
 _MAX_CAMERAS    = 4
 _FILE_MAP_READ  = 0x0004
 _k32            = ctypes.windll.kernel32
@@ -118,10 +118,10 @@ class _ShmHeader(ctypes.Structure):
         ("reference_counts",         ctypes.c_int32 * _POOL_SIZE),
     ]
 
-_IMAGE_DATA_OFFSET = ctypes.sizeof(_ShmHeader)   # 368 bytes
+_IMAGE_DATA_OFFSET = ctypes.sizeof(_ShmHeader)   # 560 bytes
 
-assert _IMAGE_DATA_OFFSET == 368, (
-    f"SHM header size mismatch: {_IMAGE_DATA_OFFSET} != 368. "
+assert _IMAGE_DATA_OFFSET == 560, (
+    f"SHM header size mismatch: {_IMAGE_DATA_OFFSET} != 560. "
     "Check that _POOL_SIZE and _MAX_CAMERAS match the C++ header."
 )
 

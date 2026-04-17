@@ -300,15 +300,34 @@ void SpinnakerCameraManager::CameraAcquisitionThread(Spinnaker::CameraPtr camera
         // This is the only work done while holding the ImagePtr.
         // The debayer thread picks up the raw bytes and does conversion
         // asynchronously, so image->Release() happens before any CPU-heavy work.
+        //
+        // GigE cameras pad each row so stride >= width * bytes_per_pixel.
+        // Image::Create() in the debayer thread assumes tight packing (no padding),
+        // so we strip the padding here by copying row-by-row.
         {
-            const std::size_t raw_bytes = image->GetImageSize();
+            const std::size_t img_w      = image->GetWidth();
+            const std::size_t img_h      = image->GetHeight();
+            const std::size_t src_stride = image->GetStride();
+            const std::size_t tight_row  = img_w * (image->GetBitsPerPixel() / 8);
+            const std::size_t compact    = tight_row * img_h;
+
             std::lock_guard<std::mutex> lk(raw_mutex_[camera_id]);
             RawFrame& slot = raw_frames_[camera_id];
-            if (slot.data.size() < raw_bytes)
-                slot.data.resize(raw_bytes);
-            std::memcpy(slot.data.data(), image->GetData(), raw_bytes);
-            slot.width        = static_cast<int32_t>(image->GetWidth());
-            slot.height       = static_cast<int32_t>(image->GetHeight());
+            if (slot.data.size() < compact)
+                slot.data.resize(compact);
+
+            if (src_stride == tight_row) {
+                std::memcpy(slot.data.data(), image->GetData(), compact);
+            } else {
+                const uint8_t* src = static_cast<const uint8_t*>(image->GetData());
+                for (std::size_t row = 0; row < img_h; ++row)
+                    std::memcpy(slot.data.data() + row * tight_row,
+                                src + row * src_stride,
+                                tight_row);
+            }
+
+            slot.width        = static_cast<int32_t>(img_w);
+            slot.height       = static_cast<int32_t>(img_h);
             slot.pixel_format = image->GetPixelFormat();
             slot.pending      = true;
         }
@@ -362,14 +381,25 @@ void SpinnakerCameraManager::DebayerThread(int32_t camera_id) {
             local.pixel_format,
             local.data.data());
 
-        // Log the raw pixel format once per camera so mismatches are visible.
+        // Log image geometry once per camera — confirms stride/padding situation.
         {
             static bool logged[MAX_CAMERAS] = {};
             if (!logged[camera_id]) {
                 logged[camera_id] = true;
+                Spinnaker::ImagePtr probe = img_proc.Convert(raw_img, Spinnaker::PixelFormat_RGB8);
+                const std::size_t pw = probe->GetWidth();
+                const std::size_t ph = probe->GetHeight();
+                const std::size_t ps = probe->GetStride();
+                const std::size_t pi = probe->GetImageSize();
                 std::cout << "[Debayer cam" << camera_id << "] raw pixel format = "
                           << raw_img->GetPixelFormatName()
-                          << " (" << static_cast<int>(local.pixel_format) << ")\n";
+                          << " (" << static_cast<int>(local.pixel_format) << ")\n"
+                          << "[Debayer cam" << camera_id << "] RGB8 output: "
+                          << pw << "x" << ph
+                          << "  stride=" << ps
+                          << "  ImageSize=" << pi
+                          << "  tight=" << (pw * 3)
+                          << (ps == pw * 3 ? "  [TIGHT]" : "  [PADDED]") << "\n";
             }
         }
 
@@ -383,22 +413,35 @@ void SpinnakerCameraManager::DebayerThread(int32_t camera_id) {
 
         // Optional R↔B swap: byte 0 (R) ↔ byte 2 (B) for every pixel.
         // Controlled per-camera via SetParameter("ChannelOrder", 0, 0, cam, "BGR"/"RGB").
+        // Use the actual stride from rgb_img so row padding bytes are never touched.
         if (swap_rb_[camera_id].load(std::memory_order_relaxed)) {
-            const std::size_t pixel_count =
-                static_cast<std::size_t>(local.width) * local.height;
-            uint8_t* px = static_cast<uint8_t*>(rgb_img->GetData());
-            for (std::size_t i = 0; i < pixel_count; ++i, px += 3)
-                std::swap(px[0], px[2]);
+            const std::size_t w      = static_cast<std::size_t>(rgb_img->GetWidth());
+            const std::size_t h      = static_cast<std::size_t>(rgb_img->GetHeight());
+            const std::size_t stride = rgb_img->GetStride();
+            uint8_t* row = static_cast<uint8_t*>(rgb_img->GetData());
+            for (std::size_t r = 0; r < h; ++r, row += stride) {
+                uint8_t* px = row;
+                for (std::size_t c = 0; c < w; ++c, px += 3)
+                    std::swap(px[0], px[2]);
+            }
         }
 
         // ── Write RGB8 frame to shared memory ─────────────────────────────────
         const int32_t buf_idx = shm_.ClaimFreeBuffer(camera_id);
         if (buf_idx >= 0) {
-            const std::size_t rgb_bytes = rgb_img->GetImageSize();
-            const std::size_t dst_bytes = shm_.GetHeader()->single_image_size;
-            std::memcpy(shm_.GetBufferPtr(buf_idx),
-                        rgb_img->GetData(),
-                        std::min(rgb_bytes, dst_bytes));
+            const std::size_t w          = static_cast<std::size_t>(rgb_img->GetWidth());
+            const std::size_t h          = static_cast<std::size_t>(rgb_img->GetHeight());
+            const std::size_t src_stride = rgb_img->GetStride();
+            const std::size_t tight_row  = w * 3;
+            uint8_t*       dst = shm_.GetBufferPtr(buf_idx);
+            const uint8_t* src = static_cast<const uint8_t*>(rgb_img->GetData());
+            if (src_stride == tight_row) {
+                const std::size_t dst_bytes = shm_.GetHeader()->single_image_size;
+                std::memcpy(dst, src, std::min(tight_row * h, dst_bytes));
+            } else {
+                for (std::size_t r = 0; r < h; ++r)
+                    std::memcpy(dst + r * tight_row, src + r * src_stride, tight_row);
+            }
             shm_.PublishBuffer(buf_idx, camera_id, local.width, local.height);
         }
 
@@ -418,9 +461,20 @@ void SpinnakerCameraManager::DebayerThread(int32_t camera_id) {
             snap.width     = static_cast<uint32_t>(rgb_img->GetWidth());
             snap.height    = static_cast<uint32_t>(rgb_img->GetHeight());
             snap.channels  = 3;
-            const std::size_t rgb_bytes = rgb_img->GetImageSize();
-            snap.data.resize(rgb_bytes);
-            std::memcpy(snap.data.data(), rgb_img->GetData(), rgb_bytes);
+            {
+                const std::size_t src_stride = rgb_img->GetStride();
+                const std::size_t tight_row  = static_cast<std::size_t>(snap.width) * 3;
+                const std::size_t total      = tight_row * snap.height;
+                snap.data.resize(total);
+                const uint8_t* src = static_cast<const uint8_t*>(rgb_img->GetData());
+                if (src_stride == tight_row) {
+                    std::memcpy(snap.data.data(), src, total);
+                } else {
+                    for (std::size_t r = 0; r < snap.height; ++r)
+                        std::memcpy(snap.data.data() + r * tight_row,
+                                    src + r * src_stride, tight_row);
+                }
+            }
 
             const auto now = std::chrono::system_clock::now();
             const auto ms  = std::chrono::duration_cast<std::chrono::milliseconds>(
