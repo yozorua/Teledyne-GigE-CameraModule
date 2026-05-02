@@ -2,6 +2,11 @@
 
 A high-performance Windows process that interfaces with multiple GigE cameras via the **Spinnaker SDK**, maintains maximum frame rates, and distributes images to separate analyzer processes on the same machine via **Windows Shared Memory** + **gRPC signalling** — without ever blocking the camera acquisition loop.
 
+| Transport | What it carries | When to use |
+|---|---|---|
+| **gRPC** | Commands, status, frame metadata | Control, health checks, triggering saves |
+| **Shared Memory** | Raw pixel data | High-frequency frame consumption (low latency) |
+
 ---
 
 ## Prerequisites
@@ -270,9 +275,26 @@ camera> quit
 The pool header lives at offset 0 of the mapped region:
 
 ```
-[SharedMemoryHeader]           ← sizeof(SharedMemoryHeader)
-[Buffer 0][Buffer 1]...[19]    ← 20 × (width × height × channels) bytes
+Offset 0                    SharedMemoryHeader (368 bytes)
+  ├─ latest_buffer_index        atomic<int32>        most recent buffer, any camera
+  ├─ latest_buffer_per_camera   atomic<int32>[4]     per-camera latest
+  ├─ image_width / height       int32                SHM max allocation size
+  ├─ image_channels             int32                always 1 (Mono8) unless changed
+  ├─ single_image_size          size_t               bytes per buffer slot
+  ├─ pool_size                  int32                always 32
+  ├─ num_cameras                int32
+  ├─ buffer_camera_id[32]       int32[]              which camera wrote each slot
+  ├─ buffer_width[32]           int32[]              actual ROI width per slot
+  ├─ buffer_height[32]          int32[]              actual ROI height per slot
+  └─ reference_counts[32]       atomic<int32>[]      -1=writing, 0=free, N=readers
+
+Offset 368                  Pixel data pool
+  ├─ slot 0                     single_image_size bytes
+  ├─ slot 1                     single_image_size bytes
+  └─ ...  (32 slots total, 8 per camera)
 ```
+
+> **Important:** Use `buffer_width[idx]` and `buffer_height[idx]`, not `image_width`/`image_height`, to determine actual pixel dimensions — they differ when the camera ROI has been changed at runtime.
 
 Buffer state is tracked by `reference_counts[i]` (atomic int32):
 
@@ -365,6 +387,7 @@ See `proto/camera_service.proto`.  Package name: `camaramodule`.
 | `ExposureAuto` | `"Off"` `"Once"` `"Continuous"` | Must be `"Off"` before writing `ExposureTime` |
 | `GainAuto` | `"Off"` `"Once"` `"Continuous"` | Must be `"Off"` before writing `Gain` |
 | `BalanceWhiteAuto` | `"Off"` `"Once"` `"Continuous"` | Color cameras only |
+| `ChannelOrder` | `"BGR"` `"RGB"` | Software-only (no camera node). Default `"BGR"` — R↔B swap applied after debayer. Set `"RGB"` to skip the swap. Per-camera configurable. |
 
 **Float nodes** — pass value in `float_value`:
 
@@ -462,6 +485,28 @@ Saved files are named `frame_cam<N>_<timestamp_ms>.raw` (raw binary, width × he
 | `inspect <idx>` | Pixel stats for buffer N (min/max/mean + 5×5 sample grid) — direct SHM read, no gRPC |
 
 The `shm` and `inspect` commands open shared memory read-only (`OpenFileMapping`) — no Administrator rights required on the consumer side.
+
+---
+
+## Integration Examples
+
+| Language | Guide | Wrapper |
+|---|---|---|
+| C++ | [`examples/cpp/README.md`](examples/cpp/README.md) | [`examples/cpp/gige_camera.h`](examples/cpp/gige_camera.h) |
+| Python | [`examples/python/`](examples/python/) | [`examples/python/gige_camera.py`](examples/python/gige_camera.py) |
+
+### Generating gRPC Stubs
+
+**C++** stubs are generated automatically at CMake build time.
+
+**Python** stubs — run once before using the Python example:
+
+```bat
+cd examples\python
+generate_proto.bat
+```
+
+This creates `camera_service_pb2.py` and `camera_service_pb2_grpc.py` in the `examples/python/` directory.
 
 ---
 
