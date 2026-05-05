@@ -906,8 +906,9 @@ bool SpinnakerCameraManager::GetCameraInfo(int32_t camera_id, CameraInfo& info) 
     info.gamma         = readFloat("Gamma");
     info.black_level   = readFloat("BlackLevel");
     info.frame_rate    = readFloat("AcquisitionFrameRate");
-    info.exposure_auto = readEnum("ExposureAuto");
-    info.gain_auto     = readEnum("GainAuto");
+    info.exposure_auto   = readEnum("ExposureAuto");
+    info.gain_auto       = readEnum("GainAuto");
+    info.ev_compensation = readFloat("AutoExposureEVCompensation");
 
     return true;
 }

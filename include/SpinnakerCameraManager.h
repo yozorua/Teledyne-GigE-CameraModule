@@ -64,9 +64,10 @@ struct CameraInfo {
     bool        acquiring{false};
     float       gamma{1.0f};
     float       black_level{0.0f};
-    float       frame_rate{0.0f};   // AcquisitionFrameRate; 0 if node unavailable
-    std::string exposure_auto;      // "Off" | "Once" | "Continuous"
-    std::string gain_auto;          // "Off" | "Once" | "Continuous"
+    float       frame_rate{0.0f};      // AcquisitionFrameRate; 0 if node unavailable
+    std::string exposure_auto;         // "Off" | "Once" | "Continuous"
+    std::string gain_auto;             // "Off" | "Once" | "Continuous"
+    float       ev_compensation{0.0f}; // AutoExposureEVCompensation; 0 if node unavailable
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

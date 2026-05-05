@@ -356,6 +356,9 @@ private:
                   << "  black lvl  : " << s.black_level() << '\n'
                   << "  frame rate : " << (s.frame_rate() > 0.0f
                                             ? std::to_string(s.frame_rate()) + " fps"
+                                            : "n/a (node unavailable)") << '\n'
+                  << "  EV comp    : " << (s.ev_compensation() != 0.0f || !s.exposure_auto().empty()
+                                            ? std::to_string(s.ev_compensation()) + " EV"
                                             : "n/a (node unavailable)") << '\n';
     }
 
@@ -392,6 +395,9 @@ Parameter control:
                    set 1 ChannelOrder 0 0 RGB   (skip R↔B swap for camera 1)
     Debayer mode:  set 0 DebayerMode  0 0 Off   (raw Bayer in SHM, saves .raw)
                    set 0 DebayerMode  0 0 On    (debayer → BGR8, default)
+    EV comp:       set AutoExposureEVCompensation 1.5 0   (all cams, +1.5 EV)
+                   set 0 AutoExposureEVCompensation -1.0 0 (cam 0, -1.0 EV)
+                   (requires ExposureAuto = Once or Continuous)
 
 Disk save:
   save [cam_id]                 Flag next JPEG frame for disk write (-1 or omit = any camera)

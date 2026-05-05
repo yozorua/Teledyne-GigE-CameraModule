@@ -145,6 +145,7 @@ grpc::Status CameraControlServiceImpl::GetCameraInfo(
     resp->set_frame_rate(info.frame_rate);
     resp->set_exposure_auto(info.exposure_auto);
     resp->set_gain_auto(info.gain_auto);
+    resp->set_ev_compensation(info.ev_compensation);
     return grpc::Status::OK;
 }
 

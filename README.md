@@ -377,6 +377,7 @@ See `proto/camera_service.proto`.  Package name: `camaramodule`.
 | `frame_rate` | `AcquisitionFrameRate` | float | 0 if node unavailable |
 | `fps` | — | float | Computed from per-camera frame timestamps (last 30 frames) |
 | `acquiring` | — | bool | Whether the acquisition thread is currently running |
+| `ev_compensation` | `AutoExposureEVCompensation` | float | EV offset for auto-exposure; 0 if node unavailable |
 
 ### `SetParameter` — settable GenICam nodes
 
@@ -401,6 +402,7 @@ See `proto/camera_service.proto`.  Package name: `camaramodule`.
 | `Gamma` | Typically 0.25–4.0 |
 | `BlackLevel` | |
 | `AcquisitionFrameRate` | Requires `AcquisitionFrameRateEnable = true` |
+| `AutoExposureEVCompensation` | EV offset applied on top of the auto-exposure algorithm (e.g. `-1.5` to `+1.5`). Requires `ExposureAuto = "Once"` or `"Continuous"`. Matches the **EV** slider in SpinView. |
 
 **Integer nodes** — pass value in `int_value`:
 

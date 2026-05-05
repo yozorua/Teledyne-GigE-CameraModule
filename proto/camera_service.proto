@@ -55,8 +55,9 @@ message CameraState {
   float  gamma       = 15;
   float  black_level = 16;
   float  frame_rate  = 17;  // AcquisitionFrameRate; 0 if node unavailable
-  string exposure_auto = 18;  // "Off" | "Once" | "Continuous"
-  string gain_auto     = 19;  // "Off" | "Once" | "Continuous"
+  string exposure_auto   = 18;  // "Off" | "Once" | "Continuous"
+  string gain_auto       = 19;  // "Off" | "Once" | "Continuous"
+  float  ev_compensation = 20;  // AutoExposureEVCompensation; 0 if node unavailable
 }
 
 message ParameterRequest {
