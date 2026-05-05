@@ -46,6 +46,10 @@ public:
                                const camaramodule::CameraRequest* req,
                                camaramodule::CameraState*         resp) override;
 
+    grpc::Status ResyncTimestamp(grpc::ServerContext*              ctx,
+                                 const camaramodule::CameraRequest* req,
+                                 camaramodule::CommandStatus*       resp) override;
+
     grpc::Status GetLatestImageFrame(grpc::ServerContext*              ctx,
                                      const camaramodule::FrameRequest* req,
                                      camaramodule::FrameInfo*          resp) override;

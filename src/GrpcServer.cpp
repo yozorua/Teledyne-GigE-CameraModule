@@ -149,6 +149,20 @@ grpc::Status CameraControlServiceImpl::GetCameraInfo(
     return grpc::Status::OK;
 }
 
+grpc::Status CameraControlServiceImpl::ResyncTimestamp(
+    grpc::ServerContext*,
+    const camaramodule::CameraRequest* req,
+    camaramodule::CommandStatus*       resp)
+{
+    const int32_t camera_id = req->camera_id();
+    const bool ok = cam_mgr_.ResyncTimestamp(camera_id);
+    resp->set_success(ok);
+    resp->set_message(ok
+        ? "Timestamp offset recomputed."
+        : "TimestampLatch unavailable — falling back to system_clock.");
+    return grpc::Status::OK;
+}
+
 grpc::Status CameraControlServiceImpl::GetLatestImageFrame(
     grpc::ServerContext*,
     const camaramodule::FrameRequest* req,

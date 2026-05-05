@@ -147,10 +147,20 @@ public:
     /// Requires the camera to be initialized (i.e. after Initialize() succeeds).
     bool GetCameraInfo(int32_t camera_id, CameraInfo& info);
 
+    /// Re-runs ComputeTimestampOffset for one camera (or all if -1).
+    /// Call this to correct drift after long uptime or a camera reconnect.
+    bool ResyncTimestamp(int32_t camera_id = -1);
+
 private:
     // ── Per-camera helpers ────────────────────────────────────────────────────
     bool StartCamera(int32_t camera_id);
     bool StopCamera(int32_t camera_id);
+
+    /// Executes TimestampLatch, brackets it with two system_clock samples, and
+    /// stores (wall_mid_ns − cam_ns) so the acquisition thread can convert
+    /// image->GetTimeStamp() (camera ns) to wall-clock µs without calling now().
+    /// Returns false and falls back to system_clock if the node is unavailable.
+    bool ComputeTimestampOffset(int32_t camera_id);
 
     void ConfigureCamera(Spinnaker::CameraPtr& camera);
     void CameraAcquisitionThread(Spinnaker::CameraPtr camera, int32_t camera_id);
@@ -189,6 +199,13 @@ private:
     // -2 = no pending save; -1 = save from any camera; 0+ = specific camera_id.
     static constexpr int32_t  SAVE_IDLE = -2;
     std::atomic<int32_t>      pending_save_camera_id_{SAVE_IDLE};
+
+    // ── Per-camera hardware timestamp calibration ─────────────────────────────
+    // Offset (ns) to add to image->GetTimeStamp() to produce wall-clock ns.
+    // INT64_MIN = TimestampLatch unavailable; acquisition thread falls back to
+    // system_clock::now().
+    static constexpr int64_t TS_OFFSET_UNAVAIL = INT64_MIN;
+    std::atomic<int64_t> cam_ts_offset_ns_[MAX_CAMERAS]{};
 
     // ── Per-camera channel order ──────────────────────────────────────────────
     // true (default) = swap R↔B after RGB8 debayer → BGR8 in SHM.

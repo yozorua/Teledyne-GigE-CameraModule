@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <chrono>
+#include <climits>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
@@ -40,8 +41,9 @@ static constexpr uint32_t GRAB_TIMEOUT_MS = 1000;
 SpinnakerCameraManager::SpinnakerCameraManager(SharedMemoryManager& shm)
     : shm_(shm) {
     for (int i = 0; i < MAX_CAMERAS; ++i) {
-        swap_rb_[i].store(true, std::memory_order_relaxed);   // default: BGR output
-        skip_debayer_[i].store(false, std::memory_order_relaxed); // default: debayer on
+        swap_rb_[i].store(true, std::memory_order_relaxed);
+        skip_debayer_[i].store(false, std::memory_order_relaxed);
+        cam_ts_offset_ns_[i].store(TS_OFFSET_UNAVAIL, std::memory_order_relaxed);
     }
 }
 
@@ -150,6 +152,7 @@ bool SpinnakerCameraManager::StartCamera(int32_t camera_id) {
     try {
         ConfigureCamera(cameras_[camera_id]);
         cameras_[camera_id]->BeginAcquisition();
+        ComputeTimestampOffset(camera_id);
 
         debayer_running_[camera_id].store(true, std::memory_order_release);
         debayer_threads_[camera_id] = std::thread(
@@ -198,6 +201,77 @@ bool SpinnakerCameraManager::StopCamera(int32_t camera_id) {
 
     std::cout << "[CameraManager] Acquisition stopped on camera " << camera_id << ".\n";
     return true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Hardware timestamp calibration
+// ─────────────────────────────────────────────────────────────────────────────
+
+bool SpinnakerCameraManager::ComputeTimestampOffset(int32_t camera_id) {
+    if (camera_id < 0 || camera_id >= static_cast<int32_t>(cameras_.size()))
+        return false;
+
+    auto& cam = cameras_[camera_id];
+    if (!cam->IsInitialized()) return false;
+
+    using namespace Spinnaker::GenApi;
+    INodeMap& nm = cam->GetNodeMap();
+
+    CCommandPtr latch_cmd = nm.GetNode("TimestampLatch");
+    CIntegerPtr latch_val = nm.GetNode("TimestampLatchValue");
+
+    if (!IsAvailable(latch_cmd) || !IsWritable(latch_cmd) ||
+        !IsAvailable(latch_val) || !IsReadable(latch_val)) {
+        cam_ts_offset_ns_[camera_id].store(TS_OFFSET_UNAVAIL, std::memory_order_release);
+        std::cout << "[Timestamp] cam" << camera_id
+                  << " TimestampLatch unavailable — falling back to system_clock\n";
+        return false;
+    }
+
+    // Bracket the latch command with two wall-clock samples to estimate
+    // the round-trip latency and compute a midpoint offset.
+    const int64_t t_before_ns =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+
+    try { latch_cmd->Execute(); }
+    catch (const Spinnaker::Exception& ex) {
+        std::cerr << "[Timestamp] cam" << camera_id
+                  << " TimestampLatch failed: " << ex.what() << '\n';
+        cam_ts_offset_ns_[camera_id].store(TS_OFFSET_UNAVAIL, std::memory_order_release);
+        return false;
+    }
+
+    const int64_t cam_ns = latch_val->GetValue();
+
+    const int64_t t_after_ns =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+
+    const int64_t wall_mid_ns = (t_before_ns + t_after_ns) / 2;
+    const int64_t offset_ns   = wall_mid_ns - cam_ns;
+
+    cam_ts_offset_ns_[camera_id].store(offset_ns, std::memory_order_release);
+
+    std::cout << "[Timestamp] cam" << camera_id
+              << "  cam_ts=" << cam_ns << " ns"
+              << "  offset=" << offset_ns << " ns"
+              << "  latch_rtt=" << (t_after_ns - t_before_ns) << " ns\n";
+    return true;
+}
+
+bool SpinnakerCameraManager::ResyncTimestamp(int32_t camera_id) {
+    if (camera_id == -1) {
+        bool any = false;
+        for (int32_t i = 0; i < static_cast<int32_t>(cameras_.size()); ++i)
+            any |= ComputeTimestampOffset(i);
+        return any;
+    }
+    if (camera_id < 0 || camera_id >= static_cast<int32_t>(cameras_.size())) {
+        std::cerr << "[Timestamp] ResyncTimestamp: invalid camera_id " << camera_id << '\n';
+        return false;
+    }
+    return ComputeTimestampOffset(camera_id);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -308,11 +382,16 @@ void SpinnakerCameraManager::CameraAcquisitionThread(Spinnaker::CameraPtr camera
         // Image::Create() in the debayer thread assumes tight packing (no padding),
         // so we strip the padding here by copying row-by-row.
         {
-            // Capture wall-clock timestamp now — closest point to the actual
-            // sensor exposure relative to our process, before any CPU work.
-            const int64_t now_us =
-                std::chrono::duration_cast<std::chrono::microseconds>(
-                    std::chrono::system_clock::now().time_since_epoch()).count();
+            // Prefer the camera's hardware timestamp (latched at frame exposure).
+            // Fall back to system_clock if TimestampLatch was unavailable.
+            const int64_t offset = cam_ts_offset_ns_[camera_id].load(std::memory_order_acquire);
+            int64_t now_us;
+            if (offset != TS_OFFSET_UNAVAIL) {
+                now_us = (static_cast<int64_t>(image->GetTimeStamp()) + offset) / 1000;
+            } else {
+                now_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                             std::chrono::system_clock::now().time_since_epoch()).count();
+            }
 
             const std::size_t img_w      = image->GetWidth();
             const std::size_t img_h      = image->GetHeight();

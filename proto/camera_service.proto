@@ -19,6 +19,9 @@ service CameraControl {
   // ── Per-camera state ──────────────────────────────────────────────────────
   rpc GetCameraInfo       (CameraRequest)        returns (CameraState);
 
+  // ── Timestamp calibration ────────────────────────────────────────────────
+  rpc ResyncTimestamp     (CameraRequest)        returns (CommandStatus);
+
   // ── Inter-process buffer management ──────────────────────────────────────
   rpc GetLatestImageFrame (FrameRequest)         returns (FrameInfo);
   rpc ReleaseImageFrame   (ReleaseRequest)       returns (CommandStatus);

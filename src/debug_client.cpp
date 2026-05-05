@@ -244,6 +244,16 @@ public:
         PrintStatus(resp);
     }
 
+    void ResyncTimestamp(int32_t camera_id = -1) {
+        camaramodule::CameraRequest  req;
+        camaramodule::CommandStatus  resp;
+        grpc::ClientContext          ctx;
+        req.set_camera_id(camera_id);
+        auto st = stub_->ResyncTimestamp(&ctx, req, &resp);
+        if (!st.ok()) { PrintRpcError(st); return; }
+        PrintStatus(resp);
+    }
+
     void TriggerDiskSave(int32_t camera_id = -1) {
         camaramodule::CameraRequest  req;
         camaramodule::CommandStatus  resp;
@@ -377,6 +387,7 @@ Module commands:
   start  [cam_id]               Start acquisition  (-1 or omit = all cameras)
   stop   [cam_id]               Stop acquisition   (-1 or omit = all cameras)
   restart [cam_id]              Stop then start    (-1 or omit = all cameras)
+  resync  [cam_id]              Re-calibrate camera→wall-clock timestamp offset
 
 Camera info:
   cameras                       List all cameras with full state
@@ -451,12 +462,13 @@ int main(int argc, char* argv[]) {
         if (cmd == "shm")                   { PrintShmState();            continue; }
         if (cmd == "cameras")               { client.ListCameras();       continue; }
 
-        if (cmd == "start" || cmd == "stop" || cmd == "restart") {
+        if (cmd == "start" || cmd == "stop" || cmd == "restart" || cmd == "resync") {
             int32_t cam_id = -1;
             ss >> cam_id;  // optional; stays -1 if not provided
             if      (cmd == "start")   client.StartAcquisition(cam_id);
             else if (cmd == "stop")    client.StopAcquisition(cam_id);
-            else                       client.Restart(cam_id);
+            else if (cmd == "restart") client.Restart(cam_id);
+            else                       client.ResyncTimestamp(cam_id);
             continue;
         }
 

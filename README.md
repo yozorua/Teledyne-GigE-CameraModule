@@ -287,7 +287,7 @@ Offset 0                    SharedMemoryHeader (368 bytes)
   ├─ buffer_width[32]           int32[]              actual ROI width per slot
   ├─ buffer_height[32]          int32[]              actual ROI height per slot
   ├─ buffer_channels[32]        int32[]              1=raw Bayer, 3=BGR8/RGB8
-  ├─ buffer_timestamp_us[32]    int64[]              system_clock capture time (µs since epoch)
+  ├─ buffer_timestamp_us[32]    int64[]              camera hardware clock → wall-clock µs (via ResyncTimestamp offset); falls back to system_clock if TimestampLatch unavailable
   └─ reference_counts[32]       atomic<int32>[]      -1=writing, 0=free, N=readers
 
 Offset 368                  Pixel data pool
@@ -323,6 +323,49 @@ For a single camera the full 1 250 MB/s is available; with two cameras each gets
 
 ---
 
+## Timestamps
+
+Every SHM buffer slot carries a `buffer_timestamp_us` value — microseconds since Unix epoch at the moment the camera **hardware** latched the frame (i.e. at exposure time, before GigE transfer).
+
+### Source
+
+| Condition | Source |
+|---|---|
+| `TimestampLatch` node available (most FLIR GigE cameras) | `image->GetTimeStamp()` (camera hardware clock, ns) translated to wall-clock µs via a calibrated offset |
+| Node unavailable | `system_clock::now()` at the point `GetNextImage()` returns — includes ~1–5 ms transfer jitter |
+
+The hardware clock path is more accurate because the timestamp is latched by the sensor at exposure time rather than polled by software after the packet arrives.
+
+### Calibration
+
+At `StartAcquisition`, the server automatically runs a one-time calibration per camera:
+
+1. Records `t_before = system_clock::now()` in nanoseconds
+2. Executes the `TimestampLatch` GenICam command on the camera
+3. Reads `TimestampLatchValue` → `cam_ns`
+4. Records `t_after = system_clock::now()` in nanoseconds
+5. Stores `offset = (t_before + t_after) / 2 − cam_ns`
+
+Per-frame timestamp: `(image->GetTimeStamp() + offset) / 1000` µs.
+
+The server prints the result on startup:
+```
+[Timestamp] cam0  cam_ts=3600000000000 ns  offset=1746000000000000000 ns  latch_rtt=312000 ns
+```
+
+### Re-syncing
+
+Camera oscillators drift ~±50 ppm (≈ 4 ms/day). Re-run calibration with:
+
+```
+camera> resync        # all cameras
+camera> resync 0      # camera 0 only
+```
+
+Or via gRPC: `ResyncTimestamp(camera_id=-1)`.
+
+---
+
 ## gRPC API
 
 See `proto/camera_service.proto`.  Package name: `camaramodule`.
@@ -338,6 +381,7 @@ See `proto/camera_service.proto`.  Package name: `camaramodule`.
 | `TriggerDiskSave` | `Empty` | `CommandStatus` | Queue the next captured frame for disk write |
 | `SetSaveDirectory` | `SaveDirectoryRequest` | `CommandStatus` | Change the directory frames are saved to at runtime |
 | `GetCameraInfo` | `CameraRequest` | `CameraState` | Full live state for one camera (model, IP, ROI, binning, exposure, gain, FPS) |
+| `ResyncTimestamp` | `CameraRequest` | `CommandStatus` | Re-calibrate camera hardware clock → wall-clock offset for one or all cameras |
 | `GetLatestImageFrame` | `FrameRequest` | `FrameInfo` | Pin the latest buffer for a camera; returns SHM index + metadata (`timestamp` = µs since epoch at capture time) |
 | `ReleaseImageFrame` | `ReleaseRequest` | `CommandStatus` | Decrement refcount on a pinned buffer |
 
@@ -437,6 +481,7 @@ build\GigEDebugClient.exe localhost:50051
 | `start [cam_id]` | `StartAcquisition` — omit or pass `-1` for all cameras |
 | `stop [cam_id]` | `StopAcquisition` — omit or pass `-1` for all cameras |
 | `restart [cam_id]` | Stop then start (client-side; does not restart the process) |
+| `resync [cam_id]` | `ResyncTimestamp` — re-calibrate camera→wall-clock timestamp offset |
 
 **Camera info**
 
@@ -482,7 +527,7 @@ set DebayerMode 0 0 On            # debayer → BGR8 (default)
 | `save` | `TriggerDiskSave` — flags next frame for write |
 | `savedir <path>` | `SetSaveDirectory` — change output path at runtime |
 
-Saved files are named `frame_cam<N>_<timestamp_ms>.raw` (raw binary, width × height bytes for Mono8).
+Saved files are named `frame_cam<N>_<timestamp_ms>.jpg` (JPEG, BGR8) or `frame_cam<N>_<timestamp_ms>.raw` (raw binary, 1 byte/pixel Bayer when `DebayerMode=Off`).
 
 **Frame inspection**
 
