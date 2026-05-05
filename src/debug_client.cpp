@@ -75,8 +75,10 @@ static void InspectBuffer(int32_t idx) {
         return;
     }
 
-    const std::size_t  n   = hdr->single_image_size;
-    const uint8_t*     buf = shm.buffer(idx);
+    const std::size_t  n            = hdr->single_image_size;
+    const uint8_t*     buf          = shm.buffer(idx);
+    const int64_t      ts_us        = hdr->buffer_timestamp_us[idx];
+    const int32_t      buf_channels = hdr->buffer_channels[idx];
 
     if (n == 0) {
         std::cout << "  [SHM] single_image_size is 0 — header not yet initialised.\n";
@@ -103,14 +105,21 @@ static void InspectBuffer(int32_t idx) {
               << "min=" << static_cast<int>(vmin)
               << "  max=" << static_cast<int>(vmax)
               << "  mean=" << std::fixed << std::setprecision(1) << mean << '\n';
+    if (ts_us > 0)
+        std::cout << "  [SHM] timestamp : " << ts_us << " us\n";
 
     if (w > 0 && h > 0) {
-        std::cout << "  [SHM] Pixel sample (5×5 grid across " << w << "×" << h << "):\n        ";
+        const int32_t ch = (buf_channels > 0) ? buf_channels : 3;
+        const char*   fmt = (ch == 1) ? "Bayer/raw" : (ch == 3 ? "BGR8" : "unknown");
+        std::cout << "  [SHM] Pixel sample (5×5 grid across " << w << "×" << h
+                  << ", " << fmt << "):\n        ";
         for (int gy = 0; gy < 5; ++gy) {
             for (int gx = 0; gx < 5; ++gx) {
                 const int px = static_cast<int>(gx * (w - 1) / 4);
                 const int py = static_cast<int>(gy * (h - 1) / 4);
-                std::cout << std::setw(4) << static_cast<int>(buf[py * w + px]);
+                // For multi-channel images, sample the first channel (B in BGR8).
+                std::cout << std::setw(4)
+                          << static_cast<int>(buf[(py * w + px) * ch]);
             }
             std::cout << '\n' << "        ";
         }
@@ -137,14 +146,15 @@ static void PrintShmState() {
         std::cout << "[cam" << c << "]=" << hdr->latest_buffer_per_camera[c].load() << ' ';
     std::cout << '\n';
 
-    std::cout << "  [SHM] Buffer states (refcount / camera / dims):\n        ";
+    std::cout << "  [SHM] Buffer states (refcount / camera / dims / channels):\n        ";
     for (int i = 0; i < hdr->pool_size; ++i) {
         const int32_t rc  = hdr->reference_counts[i].load();
         const int32_t cam = hdr->buffer_camera_id[i];
         const int32_t bw  = hdr->buffer_width[i];
         const int32_t bh  = hdr->buffer_height[i];
+        const int32_t bch = hdr->buffer_channels[i];
         std::cout << "[" << i << "]rc=" << rc << "/c" << cam
-                  << "/" << bw << "x" << bh << "  ";
+                  << "/" << bw << "x" << bh << "x" << bch << "  ";
         if ((i + 1) % 4 == 0) std::cout << "\n        ";
     }
     std::cout << '\n';
@@ -296,7 +306,7 @@ public:
         std::cout << "  shm_index : " << idx                << '\n'
                   << "  camera_id : " << resp.camera_id()   << '\n'
                   << "  size      : " << resp.width() << "×" << resp.height() << '\n'
-                  << "  timestamp : " << resp.timestamp()   << " ms\n";
+                  << "  timestamp : " << resp.timestamp()   << " us\n";
 
         InspectBuffer(idx);
 
@@ -380,6 +390,8 @@ Parameter control:
                    set 0 ExposureAuto 0 0 Once
     Channel order: set 0 ChannelOrder 0 0 BGR   (default: red=red, blue=blue)
                    set 1 ChannelOrder 0 0 RGB   (skip R↔B swap for camera 1)
+    Debayer mode:  set 0 DebayerMode  0 0 Off   (raw Bayer in SHM, saves .raw)
+                   set 0 DebayerMode  0 0 On    (debayer → BGR8, default)
 
 Disk save:
   save [cam_id]                 Flag next JPEG frame for disk write (-1 or omit = any camera)

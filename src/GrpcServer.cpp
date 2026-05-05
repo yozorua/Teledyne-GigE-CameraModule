@@ -164,12 +164,9 @@ grpc::Status CameraControlServiceImpl::GetLatestImageFrame(
     }
 
     const SharedMemoryHeader* hdr = shm_mgr_.GetHeader();
-    const int64_t ts = std::chrono::duration_cast<std::chrono::milliseconds>(
-                           std::chrono::system_clock::now().time_since_epoch())
-                           .count();
 
     resp->set_shared_memory_index(idx);
-    resp->set_timestamp(ts);
+    resp->set_timestamp(hdr->buffer_timestamp_us[idx]);  // µs since Unix epoch
     resp->set_width(hdr->buffer_width[idx]);    // actual ROI, not the SHM max
     resp->set_height(hdr->buffer_height[idx]);
     resp->set_camera_id(hdr->buffer_camera_id[idx]);

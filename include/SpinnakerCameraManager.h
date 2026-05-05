@@ -26,6 +26,7 @@ struct RawFrame {
     int32_t                     width{0};
     int32_t                     height{0};
     Spinnaker::PixelFormatEnums pixel_format{};
+    int64_t                     timestamp_us{0};  // system_clock µs at capture time
     bool                        pending{false};
 };
 
@@ -193,6 +194,12 @@ private:
     // false          = keep RGB8 as-is.
     // Controlled at runtime via SetParameter("ChannelOrder", …, "BGR"/"RGB").
     std::atomic<bool> swap_rb_[MAX_CAMERAS]{};
+
+    // ── Per-camera debayer mode ───────────────────────────────────────────────
+    // false (default) = debayer to RGB8/BGR8 before writing to SHM.
+    // true            = write raw Bayer bytes (1 ch) directly to SHM.
+    // Controlled at runtime via SetParameter("DebayerMode", …, "On"/"Off").
+    std::atomic<bool> skip_debayer_[MAX_CAMERAS]{};
 
     // ── Per-camera FPS tracking ───────────────────────────────────────────────
     static constexpr std::size_t FPS_WINDOW = 30;

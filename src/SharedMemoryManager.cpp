@@ -51,9 +51,11 @@ bool SharedMemoryManager::Initialize(int32_t width, int32_t height, int32_t chan
 
     for (int i = 0; i < POOL_SIZE; ++i) {
         header_->reference_counts[i].store(0, std::memory_order_relaxed);
-        header_->buffer_camera_id[i] = -1;
-        header_->buffer_width[i]     = 0;
-        header_->buffer_height[i]    = 0;
+        header_->buffer_camera_id[i]   = -1;
+        header_->buffer_width[i]       = 0;
+        header_->buffer_height[i]      = 0;
+        header_->buffer_channels[i]    = 0;
+        header_->buffer_timestamp_us[i] = 0;
     }
 
     image_data_base_ = reinterpret_cast<uint8_t*>(mapped_view_) + sizeof(SharedMemoryHeader);
@@ -125,16 +127,19 @@ uint8_t* SharedMemoryManager::GetBufferPtr(int32_t index) {
 }
 
 void SharedMemoryManager::PublishBuffer(int32_t index, int32_t camera_id,
-                                        int32_t actual_width, int32_t actual_height) {
+                                        int32_t actual_width, int32_t actual_height,
+                                        int32_t actual_channels, int64_t timestamp_us) {
     assert(index >= 0 && index < POOL_SIZE);
     assert(camera_id >= 0 && camera_id < MAX_CAMERAS);
 
-    // Tag the buffer with its source camera and actual pixel dimensions.
+    // Tag the buffer with its source camera, actual pixel dimensions, and capture time.
     // Dimensions may differ from the SHM header's image_width/image_height
     // when the camera ROI was changed after initialisation.
-    header_->buffer_camera_id[index] = camera_id;
-    header_->buffer_width[index]     = actual_width;
-    header_->buffer_height[index]    = actual_height;
+    header_->buffer_camera_id[index]    = camera_id;
+    header_->buffer_width[index]        = actual_width;
+    header_->buffer_height[index]       = actual_height;
+    header_->buffer_channels[index]     = actual_channels;
+    header_->buffer_timestamp_us[index] = timestamp_us;
 
     // Release-store: image bytes are visible before refcount or index updates.
     header_->reference_counts[index].store(0, std::memory_order_release);

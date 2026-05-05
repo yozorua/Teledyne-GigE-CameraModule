@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -38,8 +39,10 @@ static constexpr uint32_t GRAB_TIMEOUT_MS = 1000;
 
 SpinnakerCameraManager::SpinnakerCameraManager(SharedMemoryManager& shm)
     : shm_(shm) {
-    for (int i = 0; i < MAX_CAMERAS; ++i)
-        swap_rb_[i].store(true, std::memory_order_relaxed);  // default: BGR output
+    for (int i = 0; i < MAX_CAMERAS; ++i) {
+        swap_rb_[i].store(true, std::memory_order_relaxed);   // default: BGR output
+        skip_debayer_[i].store(false, std::memory_order_relaxed); // default: debayer on
+    }
 }
 
 SpinnakerCameraManager::~SpinnakerCameraManager() {
@@ -305,6 +308,12 @@ void SpinnakerCameraManager::CameraAcquisitionThread(Spinnaker::CameraPtr camera
         // Image::Create() in the debayer thread assumes tight packing (no padding),
         // so we strip the padding here by copying row-by-row.
         {
+            // Capture wall-clock timestamp now — closest point to the actual
+            // sensor exposure relative to our process, before any CPU work.
+            const int64_t now_us =
+                std::chrono::duration_cast<std::chrono::microseconds>(
+                    std::chrono::system_clock::now().time_since_epoch()).count();
+
             const std::size_t img_w      = image->GetWidth();
             const std::size_t img_h      = image->GetHeight();
             const std::size_t src_stride = image->GetStride();
@@ -329,6 +338,7 @@ void SpinnakerCameraManager::CameraAcquisitionThread(Spinnaker::CameraPtr camera
             slot.width        = static_cast<int32_t>(img_w);
             slot.height       = static_cast<int32_t>(img_h);
             slot.pixel_format = image->GetPixelFormat();
+            slot.timestamp_us = now_us;
             slot.pending      = true;
         }
 
@@ -368,6 +378,60 @@ void SpinnakerCameraManager::DebayerThread(int32_t camera_id) {
             // Move the slot contents out so we release the lock before debayering.
             local = std::move(raw_frames_[camera_id]);
             raw_frames_[camera_id].pending = false;
+        }
+
+        // ── Raw Bayer passthrough (DebayerMode=Off) ───────────────────────────
+        if (skip_debayer_[camera_id].load(std::memory_order_relaxed)) {
+            const std::size_t raw_bytes =
+                static_cast<std::size_t>(local.width) * local.height;
+
+            const int32_t buf_idx = shm_.ClaimFreeBuffer(camera_id);
+            if (buf_idx >= 0) {
+                uint8_t*       dst       = shm_.GetBufferPtr(buf_idx);
+                const std::size_t dst_sz = shm_.GetHeader()->single_image_size;
+                std::memcpy(dst, local.data.data(), std::min(raw_bytes, dst_sz));
+                shm_.PublishBuffer(buf_idx, camera_id, local.width, local.height, 1,
+                                   local.timestamp_us);
+            }
+
+            // Optional disk save — write raw Bayer bytes as a binary file.
+            int32_t save_req = pending_save_camera_id_.load(std::memory_order_acquire);
+            const bool save_wanted = (save_req != SAVE_IDLE) &&
+                                     (save_req == camera_id || save_req == -1);
+            if (save_wanted &&
+                pending_save_camera_id_.compare_exchange_strong(
+                    save_req, SAVE_IDLE,
+                    std::memory_order_acq_rel,
+                    std::memory_order_relaxed)) {
+
+                FrameSnapshot snap;
+                snap.camera_id = camera_id;
+                snap.width     = static_cast<uint32_t>(local.width);
+                snap.height    = static_cast<uint32_t>(local.height);
+                snap.channels  = 1;
+                snap.data.assign(local.data.begin(),
+                                 local.data.begin() +
+                                     static_cast<std::ptrdiff_t>(raw_bytes));
+
+                const auto now = std::chrono::system_clock::now();
+                const auto ms  = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     now.time_since_epoch()).count();
+                std::string save_dir;
+                {
+                    std::lock_guard<std::mutex> lk(save_dir_mutex_);
+                    save_dir = save_directory_;
+                }
+                std::ostringstream fname;
+                fname << "frame_cam" << camera_id << "_" << ms << ".raw";
+                snap.save_path = (fs::path(save_dir) / fname.str()).string();
+
+                {
+                    std::lock_guard<std::mutex> lk(save_mutex_);
+                    save_queue_.push(std::move(snap));
+                }
+                save_cv_.notify_one();
+            }
+            continue;
         }
 
         // ── Debayer: wrap raw bytes in a Spinnaker Image, convert to BGR8 ──────
@@ -442,7 +506,8 @@ void SpinnakerCameraManager::DebayerThread(int32_t camera_id) {
                 for (std::size_t r = 0; r < h; ++r)
                     std::memcpy(dst + r * tight_row, src + r * src_stride, tight_row);
             }
-            shm_.PublishBuffer(buf_idx, camera_id, local.width, local.height);
+            shm_.PublishBuffer(buf_idx, camera_id, local.width, local.height, 3,
+                               local.timestamp_us);
         }
 
         // ── Optional disk save ─────────────────────────────────────────────────
@@ -524,11 +589,26 @@ void SpinnakerCameraManager::DiskSaveLoop() {
             save_queue_.pop();
         }
 
-        // Write JPEG via Windows Imaging Component (WIC).
-        // The pixel data in snap.data is BGR8 (B=byte0, G=byte1, R=byte2) —
-        // produced by the debayer thread's RGB8 conversion + R↔B swap.
-        // WIC GUID_WICPixelFormat24bppBGR expects the same B-G-R byte order.
+        // Write JPEG via Windows Imaging Component (WIC), or raw binary for Bayer frames.
         [&] {
+            // Raw Bayer (channels=1) — write bytes directly to a .raw file.
+            if (snap.channels == 1) {
+                std::ofstream f(snap.save_path, std::ios::binary);
+                if (!f) {
+                    std::cerr << "[DiskSave] Cannot create file: " << snap.save_path << '\n';
+                    return;
+                }
+                f.write(reinterpret_cast<const char*>(snap.data.data()),
+                        static_cast<std::streamsize>(snap.data.size()));
+                std::cout << "[DiskSave] cam" << snap.camera_id
+                          << "  " << snap.width << "x" << snap.height
+                          << "  Bayer/raw  ->  " << snap.save_path << '\n';
+                return;
+            }
+
+            // BGR8 — encode as JPEG via WIC.
+            // The pixel data is BGR8 (B=byte0, G=byte1, R=byte2);
+            // WIC GUID_WICPixelFormat24bppBGR expects the same byte order.
             using Microsoft::WRL::ComPtr;
 
             // COM must be initialised on each thread that uses WIC.
@@ -643,6 +723,22 @@ bool SpinnakerCameraManager::SetParameter(const std::string& param_name,
             swap_rb_[i].store(do_swap, std::memory_order_relaxed);
             std::cout << "[SetParameter] cam" << i << " ChannelOrder="
                       << (do_swap ? "BGR" : "RGB") << '\n';
+            any = true;
+        }
+        return any;
+    }
+
+    // ── Software-only parameter: DebayerMode ──────────────────────────────────
+    // "On"  (default) — debayer Bayer → RGB8/BGR8 before writing to SHM.
+    // "Off"           — write raw Bayer bytes (1 ch) directly to SHM.
+    if (param_name == "DebayerMode" && !string_value.empty()) {
+        const bool skip = (string_value == "Off");
+        bool any = false;
+        for (int32_t i = 0; i < MAX_CAMERAS; ++i) {
+            if (camera_id != -1 && i != camera_id) continue;
+            skip_debayer_[i].store(skip, std::memory_order_relaxed);
+            std::cout << "[SetParameter] cam" << i << " DebayerMode="
+                      << (skip ? "Off (raw Bayer)" : "On (BGR8)") << '\n';
             any = true;
         }
         return any;

@@ -54,6 +54,14 @@ struct SharedMemoryHeader {
     int32_t     buffer_width[POOL_SIZE];
     int32_t     buffer_height[POOL_SIZE];
 
+    /// Channels per buffer slot: 1 = raw Bayer (DebayerMode=Off), 3 = BGR/RGB8.
+    int32_t     buffer_channels[POOL_SIZE];
+
+    /// Wall-clock capture timestamp for each buffer slot (system_clock, microseconds
+    /// since Unix epoch).  Set by the producer at the moment the image is received
+    /// from the Spinnaker SDK, before image->Release().
+    int64_t     buffer_timestamp_us[POOL_SIZE];
+
     /// Per-buffer state:
     ///   SHM_WRITING (-1) – producer is copying image data into this buffer
     ///   0                – buffer is free (no readers, not being written)
@@ -112,7 +120,8 @@ public:
     /// Records the actual image dimensions so consumers always know the true
     /// pixel layout regardless of ROI changes since the SHM was allocated.
     void PublishBuffer(int32_t index, int32_t camera_id,
-                       int32_t actual_width, int32_t actual_height);
+                       int32_t actual_width, int32_t actual_height,
+                       int32_t actual_channels, int64_t timestamp_us);
 
     // ── Consumer API (called from gRPC handlers) ──────────────────────────────
 

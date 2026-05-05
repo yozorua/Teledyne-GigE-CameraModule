@@ -80,7 +80,7 @@ message FrameRequest {
 
 message FrameInfo {
   int32 shared_memory_index = 1;
-  int64 timestamp           = 2;  // milliseconds since Unix epoch
+  int64 timestamp           = 2;  // microseconds since Unix epoch (capture time)
   int32 width               = 3;
   int32 height              = 4;
   int32 camera_id           = 5;

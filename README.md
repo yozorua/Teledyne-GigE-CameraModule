@@ -221,7 +221,7 @@ camera> quit
   shm_index : 4
   camera_id : 0
   size      : 4096x3000
-  timestamp : 1741234567890 ms
+  timestamp : 1741234567890123 us
   [SHM] buffer[4] — 12288000 bytes  |  min=12  max=247  mean=128.4
   [SHM] Pixel sample (5x5 grid across 4096x3000):
           128  131  129  133  130
@@ -286,6 +286,8 @@ Offset 0                    SharedMemoryHeader (368 bytes)
   ├─ buffer_camera_id[32]       int32[]              which camera wrote each slot
   ├─ buffer_width[32]           int32[]              actual ROI width per slot
   ├─ buffer_height[32]          int32[]              actual ROI height per slot
+  ├─ buffer_channels[32]        int32[]              1=raw Bayer, 3=BGR8/RGB8
+  ├─ buffer_timestamp_us[32]    int64[]              system_clock capture time (µs since epoch)
   └─ reference_counts[32]       atomic<int32>[]      -1=writing, 0=free, N=readers
 
 Offset 368                  Pixel data pool
@@ -336,7 +338,7 @@ See `proto/camera_service.proto`.  Package name: `camaramodule`.
 | `TriggerDiskSave` | `Empty` | `CommandStatus` | Queue the next captured frame for disk write |
 | `SetSaveDirectory` | `SaveDirectoryRequest` | `CommandStatus` | Change the directory frames are saved to at runtime |
 | `GetCameraInfo` | `CameraRequest` | `CameraState` | Full live state for one camera (model, IP, ROI, binning, exposure, gain, FPS) |
-| `GetLatestImageFrame` | `FrameRequest` | `FrameInfo` | Pin the latest buffer for a camera; returns SHM index + metadata |
+| `GetLatestImageFrame` | `FrameRequest` | `FrameInfo` | Pin the latest buffer for a camera; returns SHM index + metadata (`timestamp` = µs since epoch at capture time) |
 | `ReleaseImageFrame` | `ReleaseRequest` | `CommandStatus` | Decrement refcount on a pinned buffer |
 
 ### Per-camera targeting (`camera_id` field)
@@ -388,6 +390,7 @@ See `proto/camera_service.proto`.  Package name: `camaramodule`.
 | `GainAuto` | `"Off"` `"Once"` `"Continuous"` | Must be `"Off"` before writing `Gain` |
 | `BalanceWhiteAuto` | `"Off"` `"Once"` `"Continuous"` | Color cameras only |
 | `ChannelOrder` | `"BGR"` `"RGB"` | Software-only (no camera node). Default `"BGR"` — R↔B swap applied after debayer. Set `"RGB"` to skip the swap. Per-camera configurable. |
+| `DebayerMode` | `"On"` `"Off"` | Software-only. Default `"On"` — debayer to BGR8/RGB8 before writing to SHM. Set `"Off"` to write raw Bayer bytes (1 channel) directly to SHM. Saved frames use `.raw` extension when off. Per-camera configurable. |
 
 **Float nodes** — pass value in `float_value`:
 
@@ -464,6 +467,10 @@ set GainAuto     0 0 Continuous   # enable auto-gain on all cameras
 set ExposureAuto 0 0 Once         # auto-adjust once, then lock
 set ExposureAuto 0 0 Off          # disable — required before writing ExposureTime
 set 0 GainAuto   0 0 Off          # disable on camera 0 only
+
+# Debayer mode (per-camera)
+set DebayerMode 0 0 Off           # raw Bayer → SHM (1 ch), saves .raw
+set DebayerMode 0 0 On            # debayer → BGR8 (default)
 ```
 
 **Disk save**
