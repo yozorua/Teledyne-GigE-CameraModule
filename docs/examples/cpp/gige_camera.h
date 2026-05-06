@@ -22,7 +22,8 @@
  *   auto frame = cam.grab(0);          // camera 0
  *   if (frame) {
  *       // frame->pixels  R-G-B interleaved, frame->width * frame->height * 3 bytes
- *       // frame->width, frame->height, frame->camera_id, frame->timestamp_ms
+ *       // frame->width, frame->height, frame->channels, frame->camera_id
+ *       // frame->timestamp_us  — µs since Unix epoch (hardware capture time)
  *   }
  *   cam.stop();
  */
@@ -74,6 +75,8 @@ struct ShmHeader {
     int32_t     buffer_camera_id[POOL_SIZE];
     int32_t     buffer_width[POOL_SIZE];
     int32_t     buffer_height[POOL_SIZE];
+    int32_t     buffer_channels[POOL_SIZE];      // 1 = Mono/raw Bayer, 3 = BGR/RGB
+    int64_t     buffer_timestamp_us[POOL_SIZE];  // µs since Unix epoch (hardware clock)
     std::atomic<int32_t> reference_counts[POOL_SIZE]{};
 };
 
@@ -129,14 +132,14 @@ private:
 
 /// A single camera frame returned by GigECamera::grab().
 struct GigeFrame {
-    /// RGB8 pixel data, R-G-B interleaved.
-    /// Total bytes = width * height * channels (channels == 3).
+    /// Pixel data.  For debayered frames: BGR interleaved (channels == 3).
+    /// For raw Bayer frames (DebayerMode=Off): single channel (channels == 1).
     std::vector<uint8_t> pixels;
     int32_t width{0};
     int32_t height{0};
     int32_t channels{3};
     int32_t camera_id{-1};
-    int64_t timestamp_ms{0};
+    int64_t timestamp_us{0};  ///< µs since Unix epoch (hardware capture time)
 };
 
 /// Live state snapshot for one camera.
@@ -157,6 +160,7 @@ struct GigeCameraInfo {
     float       black_level{0.f};
     float       frame_rate{0.f};
     float       fps{0.f};
+    float       ev_compensation{0.f};  ///< AutoExposureEVCompensation; 0 if unavailable
     bool        acquiring{false};
     std::string exposure_auto;  ///< "Off" | "Once" | "Continuous"
     std::string gain_auto;      ///< "Off" | "Once" | "Continuous"
@@ -239,25 +243,26 @@ public:
         auto s = stub_->GetCameraInfo(&ctx, req, &resp);
         if (!s.ok()) return std::nullopt;
         GigeCameraInfo out;
-        out.camera_id   = resp.camera_id();
-        out.model_name  = resp.model_name();
-        out.serial      = resp.serial();
-        out.ip_address  = resp.ip_address();
-        out.width       = resp.width();
-        out.height      = resp.height();
-        out.offset_x    = resp.offset_x();
-        out.offset_y    = resp.offset_y();
-        out.binning_h   = resp.binning_h();
-        out.binning_v   = resp.binning_v();
-        out.exposure_us = resp.exposure_us();
-        out.gain_db     = resp.gain_db();
-        out.gamma       = resp.gamma();
-        out.black_level = resp.black_level();
-        out.frame_rate    = resp.frame_rate();
-        out.fps           = resp.fps();
-        out.acquiring     = resp.acquiring();
-        out.exposure_auto = resp.exposure_auto();
-        out.gain_auto     = resp.gain_auto();
+        out.camera_id      = resp.camera_id();
+        out.model_name     = resp.model_name();
+        out.serial         = resp.serial();
+        out.ip_address     = resp.ip_address();
+        out.width          = resp.width();
+        out.height         = resp.height();
+        out.offset_x       = resp.offset_x();
+        out.offset_y       = resp.offset_y();
+        out.binning_h      = resp.binning_h();
+        out.binning_v      = resp.binning_v();
+        out.exposure_us    = resp.exposure_us();
+        out.gain_db        = resp.gain_db();
+        out.gamma          = resp.gamma();
+        out.black_level    = resp.black_level();
+        out.frame_rate     = resp.frame_rate();
+        out.fps            = resp.fps();
+        out.ev_compensation = resp.ev_compensation();
+        out.acquiring      = resp.acquiring();
+        out.exposure_auto  = resp.exposure_auto();
+        out.gain_auto      = resp.gain_auto();
         return out;
     }
 
@@ -294,13 +299,13 @@ public:
      *   while (running) {
      *       auto frame = cam.grab_wait(0, last_ts, 500);
      *       if (!frame) continue;       // timeout — try again
-     *       last_ts = frame->timestamp_ms;
+     *       last_ts = frame->timestamp_us;
      *       // ... process frame ...
      *   }
      * @endcode
      *
      * @param camera_id   0-based camera index.
-     * @param last_ts     Timestamp of the last processed frame (0 = accept any).
+     * @param last_ts     Timestamp (µs) of the last processed frame (0 = accept any).
      * @param timeout_ms  Maximum wait in milliseconds.
      * @return New frame, or std::nullopt on timeout.
      */
@@ -312,7 +317,7 @@ public:
         const auto deadline = clock::now() + std::chrono::milliseconds(timeout_ms);
         while (clock::now() < deadline) {
             auto frame = grab_impl(camera_id);
-            if (frame && frame->timestamp_ms != last_ts)
+            if (frame && frame->timestamp_us != last_ts)
                 return frame;
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
@@ -331,7 +336,7 @@ public:
         const auto deadline = clock::now() + std::chrono::milliseconds(timeout_ms);
         while (clock::now() < deadline) {
             auto frame = grab_impl(-1);
-            if (frame && frame->timestamp_ms != last_ts)
+            if (frame && frame->timestamp_us != last_ts)
                 return frame;
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
@@ -358,6 +363,16 @@ public:
     /// Set acquisition frame rate.
     bool set_frame_rate(float fps, int32_t camera_id = -1) {
         return set_float("AcquisitionFrameRate", fps, camera_id);
+    }
+
+    /**
+     * Set auto-exposure EV compensation.
+     *
+     * Only available when ExposureAuto is "Continuous" or "Once".
+     * Typical range: -3.0 to +3.0 EV.
+     */
+    bool set_ev_compensation(float ev, int32_t camera_id = -1) {
+        return set_float("AutoExposureEVCompensation", ev, camera_id);
     }
 
     /**
@@ -403,6 +418,17 @@ public:
     }
 
     /**
+     * Control raw Bayer passthrough.
+     *
+     * "Off"  — skip Spinnaker debayering; SHM contains 1-ch raw Bayer bytes.
+     *          Disk saves are written as binary .raw files.
+     * "On"   — normal debayering (default); SHM contains 3-ch BGR.
+     */
+    bool set_debayer_mode(const std::string& mode, int32_t camera_id = -1) {
+        return set_enum("DebayerMode", mode, camera_id);
+    }
+
+    /**
      * Set any GenICam node by name.
      *
      * - Enumeration nodes (ExposureAuto, GainAuto, …): pass the entry name
@@ -430,7 +456,8 @@ public:
 
     // ── Disk save ─────────────────────────────────────────────────────────────
 
-    /// Queue the next frame from camera_id (or any camera) for JPEG disk save.
+    /// Queue the next frame from camera_id (or any camera) for disk save.
+    /// Debayered frames are saved as JPEG; raw Bayer frames as binary .raw.
     void save_next(int32_t camera_id = -1) {
         grpc::ClientContext ctx;
         camaramodule::CameraRequest req;
@@ -447,6 +474,28 @@ public:
         req.set_path(path);
         stub_->SetSaveDirectory(&ctx, req, &resp);
         return resp.success();
+    }
+
+    // ── Timestamp calibration ─────────────────────────────────────────────────
+
+    /**
+     * Re-calibrate the camera hardware clock → wall-clock offset.
+     *
+     * Call this if you notice timestamp drift, or after a long idle period.
+     * The server brackets a TimestampLatch command with two system_clock samples
+     * and stores the midpoint as the new offset.
+     *
+     * @param camera_id  0-based index, or -1 (default) for all cameras.
+     * @return true if the latch node was available; false means the server
+     *         fell back to system_clock timestamps for that camera.
+     */
+    bool resync_timestamp(int32_t camera_id = -1) {
+        grpc::ClientContext ctx;
+        camaramodule::CameraRequest req;
+        camaramodule::CommandStatus resp;
+        req.set_camera_id(camera_id);
+        auto s = stub_->ResyncTimestamp(&ctx, req, &resp);
+        return s.ok() && resp.success();
     }
 
 private:
@@ -474,14 +523,15 @@ private:
         const int32_t idx = meta.shared_memory_index();
         const int32_t w   = meta.width();
         const int32_t h   = meta.height();
-        const int32_t ch  = shm_.header()->image_channels;
+        // Use per-buffer channel count (may be 1 for raw Bayer, 3 for BGR).
+        const int32_t ch  = shm_.header()->buffer_channels[idx];
 
         GigeFrame frame;
         frame.width        = w;
         frame.height       = h;
         frame.channels     = ch;
         frame.camera_id    = meta.camera_id();
-        frame.timestamp_ms = meta.timestamp();
+        frame.timestamp_us = meta.timestamp();
 
         // Copy pixels out of SHM before releasing the pin.
         const std::size_t n = static_cast<std::size_t>(w) * h * ch;
