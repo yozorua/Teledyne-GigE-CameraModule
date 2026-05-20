@@ -1,7 +1,6 @@
-/dist
 /build
-dist.zip
+modules/rtsp-streamer/build
+/dist
 CLAUDE.md
 /.claude
-modules/rtsp-server/build
 *.log

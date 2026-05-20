@@ -61,7 +61,6 @@ private:
     uint16_t    rtp_seq_{0};
     uint32_t    ssrc_{0};
     uint32_t    rtp_timestamp_{0};
-    uint32_t    ts_increment_{3000};
 
     std::atomic<bool> running_{false};
     std::thread       thread_;

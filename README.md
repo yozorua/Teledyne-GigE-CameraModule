@@ -535,6 +535,25 @@ vlc rtp://@:5004
 
 Stop with `Ctrl+C` — all streams are cleanly torn down.
 
+### FPS behaviour
+
+The `--fps` option controls the **maximum** stream rate, not the exact rate. The streamer detects duplicate frames (same timestamp as the last one sent) and skips them — so the output is automatically capped to whatever rate the camera actually delivers:
+
+| Camera FPS | `--fps` | Actual stream FPS |
+|---|---|---|
+| 40 | 60 | ~40 (duplicates skipped) |
+| 40 | 30 | ~30 (streamer is the bottleneck) |
+| 60 | 60 | ~60 |
+
+The RTP timestamps use real wall-clock elapsed time between sent frames, so the player always reconstructs the correct playback speed regardless of the rate mismatch.
+
+Every 5 seconds the streamer prints the actual achieved frame rate to stdout:
+
+```
+[RtspServer] cam0  actual fps: 39.8
+[RtpPushStreamer] actual fps: 39.8
+```
+
 ---
 
 ## Debug Client

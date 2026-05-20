@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstring>
+#include <iomanip>
 #include <iostream>
 #include <random>
 #include <sstream>
@@ -99,8 +100,7 @@ void RtspServer::Start(uint16_t port, int fps) {
         return;
     }
 
-    fps_          = fps;
-    ts_increment_ = RTP_CLOCK_RATE / static_cast<uint32_t>(fps);
+    fps_ = fps;
 
     listen_sock_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (listen_sock_ == INVALID_SOCKET) {
@@ -409,11 +409,17 @@ void RtspServer::ClientLoop(SOCKET sock, std::string client_addr) {
 void RtspServer::StreamLoop(int32_t stream_idx) {
     using clock = std::chrono::steady_clock;
 
-    FrameGrabber* grabber = streams_[stream_idx].grabber;
-    H264Encoder*  encoder = streams_[stream_idx].encoder;
+    FrameGrabber* grabber   = streams_[stream_idx].grabber;
+    H264Encoder*  encoder   = streams_[stream_idx].encoder;
+    const int32_t camera_id = streams_[stream_idx].camera_id;
 
     const auto frame_duration = std::chrono::microseconds(1'000'000 / fps_);
     auto next_tick = clock::now();
+
+    int64_t  last_ts          = -1;
+    auto     last_frame_wall  = clock::now();
+    uint32_t frames_sent      = 0;
+    auto     fps_window_start = clock::now();
 
     while (running_.load(std::memory_order_acquire)) {
         next_tick += frame_duration;
@@ -433,11 +439,34 @@ void RtspServer::StreamLoop(int32_t stream_idx) {
         int64_t ts = 0;
         if (!grabber->GetLatestFrame(pixels, w, h, ts)) continue;
 
+        // Skip duplicate frames — naturally caps output to the camera's real FPS.
+        if (ts == last_ts) continue;
+        last_ts = ts;
+
         auto nalus = encoder->Encode(pixels.data(), w, h);
         if (nalus.empty()) continue;
 
-        rtp_timestamps_[stream_idx] += ts_increment_;
+        // Use actual elapsed wall-clock time for RTP timestamps so playback
+        // speed stays correct even when camera fps != configured fps.
+        const auto   now           = clock::now();
+        const double elapsed_s     = std::chrono::duration<double>(now - last_frame_wall).count();
+        const auto   elapsed_ticks = static_cast<uint32_t>(elapsed_s * RTP_CLOCK_RATE);
+        rtp_timestamps_[stream_idx] += std::max(elapsed_ticks, 1u);
+        last_frame_wall = now;
+
         SendFrame(stream_idx, nalus, rtp_timestamps_[stream_idx]);
+
+        // Print actual grab fps every 5 seconds.
+        ++frames_sent;
+        const double window_s =
+            std::chrono::duration<double>(now - fps_window_start).count();
+        if (window_s >= 5.0) {
+            std::cout << "[RtspServer] cam" << camera_id
+                      << "  actual fps: " << std::fixed << std::setprecision(1)
+                      << (frames_sent / window_s) << "\n";
+            frames_sent      = 0;
+            fps_window_start = now;
+        }
     }
 }
 

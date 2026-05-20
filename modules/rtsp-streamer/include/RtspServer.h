@@ -125,6 +125,5 @@ private:
     std::vector<RtspSession> sessions_;
 
     std::vector<uint32_t> rtp_timestamps_;  // per-stream 90 kHz clock
-    uint32_t              ts_increment_{3000};
     uint16_t              session_counter_{0};
 };
