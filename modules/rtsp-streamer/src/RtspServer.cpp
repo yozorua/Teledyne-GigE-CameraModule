@@ -434,13 +434,15 @@ void RtspServer::StreamLoop(int32_t stream_idx) {
             if (!any) continue;
         }
 
+        // Cheap timestamp check before the expensive 36 MB pixel copy.
+        const int64_t ts_peek = grabber->LatestTimestampMs();
+        if (ts_peek <= 0 || ts_peek == last_ts) continue;
+
         std::vector<uint8_t> pixels;
         int w = 0, h = 0;
         int64_t ts = 0;
         if (!grabber->GetLatestFrame(pixels, w, h, ts)) continue;
-
-        // Skip duplicate frames — naturally caps output to the camera's real FPS.
-        if (ts == last_ts) continue;
+        if (ts == last_ts) continue;  // guard against race between peek and copy
         last_ts = ts;
 
         auto nalus = encoder->Encode(pixels.data(), w, h);

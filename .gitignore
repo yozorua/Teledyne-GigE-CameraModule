@@ -4,3 +4,4 @@ modules/rtsp-streamer/build
 CLAUDE.md
 /.claude
 *.log
+dist.zip

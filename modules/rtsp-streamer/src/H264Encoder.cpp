@@ -76,53 +76,75 @@ bool H264Encoder::Init(int width, int height, int fps, int bitrate_kbps) {
     width_  = width;
     height_ = height;
 
-    // ── Find encoder (prefer libx264, fall back to any H.264) ────────────────
-    const AVCodec* codec = avcodec_find_encoder_by_name("libx264");
-    if (!codec) {
-        std::cerr << "[H264Encoder] libx264 not found, trying generic H.264.\n";
-        codec = avcodec_find_encoder(AV_CODEC_ID_H264);
+    // Try GPU encoder (NVENC) first; fall back to CPU (libx264) if the GPU is
+    // unavailable or the driver version doesn't support it.
+    struct Candidate { const char* name; AVPixelFormat pix_fmt; };
+    static const Candidate kCandidates[] = {
+        { "h264_nvenc", AV_PIX_FMT_NV12    },  // GPU — RTX / Quadro NVENC
+        { "libx264",    AV_PIX_FMT_YUV420P },  // CPU fallback
+    };
+
+    AVPixelFormat pix_fmt = AV_PIX_FMT_YUV420P;
+
+    for (const auto& c : kCandidates) {
+        const AVCodec* codec = avcodec_find_encoder_by_name(c.name);
+        if (!codec) continue;
+
+        AVCodecContext* tmp = avcodec_alloc_context3(codec);
+        if (!tmp) continue;
+
+        tmp->width        = width;
+        tmp->height       = height;
+        tmp->time_base    = {1, fps};
+        tmp->framerate    = {fps, 1};
+        tmp->bit_rate     = static_cast<int64_t>(bitrate_kbps) * 1000;
+        tmp->gop_size     = fps;   // one keyframe per second
+        tmp->max_b_frames = 0;     // no B-frames — minimise latency
+        tmp->pix_fmt      = c.pix_fmt;
+
+        if (c.pix_fmt == AV_PIX_FMT_NV12) {
+            // NVENC: low-latency CBR preset (GPU encoder block, near-zero CPU)
+            av_opt_set(tmp->priv_data, "preset",         "p1",  0); // fastest NVENC preset
+            av_opt_set(tmp->priv_data, "tune",           "ll",  0); // low latency
+            av_opt_set(tmp->priv_data, "rc",             "cbr", 0); // constant bitrate
+            av_opt_set(tmp->priv_data, "delay",          "0",   0); // no encode delay
+            av_opt_set(tmp->priv_data, "repeat_headers", "1",   0); // SPS/PPS before every IDR
+        } else {
+            // libx264: ultrafast + zerolatency for minimum encode delay
+            av_opt_set(tmp->priv_data, "preset",      "ultrafast",        0);
+            av_opt_set(tmp->priv_data, "tune",        "zerolatency",      0);
+            av_opt_set(tmp->priv_data, "x264-params", "repeat-headers=1", 0);
+        }
+
+        if (avcodec_open2(tmp, codec, nullptr) == 0) {
+            ctx_    = tmp;
+            pix_fmt = c.pix_fmt;
+            std::cout << "[H264Encoder] Using encoder: " << c.name << "\n";
+            break;
+        }
+
+        std::cerr << "[H264Encoder] " << c.name << " open failed, trying next.\n";
+        avcodec_free_context(&tmp);
     }
-    if (!codec) {
+
+    if (!ctx_) {
         std::cerr << "[H264Encoder] No H.264 encoder available.\n";
         return false;
     }
 
-    ctx_ = avcodec_alloc_context3(codec);
-    if (!ctx_) return false;
-
-    ctx_->width     = width;
-    ctx_->height    = height;
-    ctx_->time_base = {1, fps};
-    ctx_->framerate = {fps, 1};
-    ctx_->bit_rate  = static_cast<int64_t>(bitrate_kbps) * 1000;
-    ctx_->gop_size  = fps;          // keyframe every second
-    ctx_->max_b_frames = 0;         // no B-frames for low latency
-    ctx_->pix_fmt   = AV_PIX_FMT_YUV420P;
-
-    // Low-latency tuning for libx264
-    av_opt_set(ctx_->priv_data, "preset", "ultrafast", 0);
-    av_opt_set(ctx_->priv_data, "tune",   "zerolatency", 0);
-    // Repeat SPS/PPS before each IDR so late-joining clients can decode
-    av_opt_set(ctx_->priv_data, "x264-params", "repeat-headers=1", 0);
-
-    if (avcodec_open2(ctx_, codec, nullptr) < 0) {
-        std::cerr << "[H264Encoder] avcodec_open2 failed.\n";
-        return false;
-    }
-
-    // ── Allocate frame and packet ─────────────────────────────────────────────
+    // ── Allocate frame (format must match the chosen encoder) ────────────────
     frame_ = av_frame_alloc();
-    frame_->format = AV_PIX_FMT_YUV420P;
+    frame_->format = pix_fmt;
     frame_->width  = width;
     frame_->height = height;
     av_frame_get_buffer(frame_, 0);
 
     pkt_ = av_packet_alloc();
 
-    // ── swscale: BGR24 → YUV420P ──────────────────────────────────────────────
+    // ── swscale: BGR24 → pix_fmt (NV12 for NVENC, YUV420P for libx264) ───────
     sws_ = sws_getContext(
         width, height, AV_PIX_FMT_BGR24,
-        width, height, AV_PIX_FMT_YUV420P,
+        width, height, pix_fmt,
         SWS_BILINEAR, nullptr, nullptr, nullptr);
     if (!sws_) {
         std::cerr << "[H264Encoder] sws_getContext failed.\n";
@@ -134,7 +156,7 @@ bool H264Encoder::Init(int width, int height, int fps, int bitrate_kbps) {
     Encode(black.data(), width, height);
 
     std::cout << "[H264Encoder] Init OK  " << width << "x" << height
-              << "  " << fps << "fps  " << bitrate_kbps << "kbps\n";
+              << "  " << fps << " fps  " << bitrate_kbps << " kbps\n";
     if (HaveSPSPPS())
         std::cout << "[H264Encoder] SDP profile-level-id=" << ProfileLevelId()
                   << "  sprop=" << SpropParameterSets() << "\n";

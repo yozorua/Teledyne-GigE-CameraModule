@@ -79,12 +79,16 @@ void RtpPushStreamer::Loop(FrameGrabber* grabber, H264Encoder* encoder, int fps)
         next_tick += frame_duration;
         std::this_thread::sleep_until(next_tick);
 
+        // Cheap timestamp check before the expensive 36 MB pixel copy.
+        const int64_t ts_peek = grabber->LatestTimestampMs();
+        if (ts_peek <= 0 || ts_peek == last_ts) continue;
+
         std::vector<uint8_t> pixels;
         int w = 0, h = 0;
         int64_t ts = 0;
         if (!grabber->GetLatestFrame(pixels, w, h, ts)) continue;
 
-        // Skip duplicate frames — naturally caps output to the camera's real FPS.
+        // Guard against race between peek and copy.
         if (ts == last_ts) continue;
         last_ts = ts;
 

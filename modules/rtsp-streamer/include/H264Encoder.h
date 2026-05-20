@@ -23,8 +23,9 @@ struct NaluUnit {
 // ─────────────────────────────────────────────────────────────────────────────
 // H264Encoder
 //
-// Wraps libavcodec/libx264 for live H.264 encoding.
-// Input:  RGB8 frames  (width * height * 3 bytes)
+// Wraps libavcodec for live H.264 encoding.
+// Tries h264_nvenc (GPU) first; falls back to libx264 (CPU) if unavailable.
+// Input:  BGR8 frames  (width * height * 3 bytes)
 // Output: Annex-B NAL units, ready for RTP packetization
 // ─────────────────────────────────────────────────────────────────────────────
 

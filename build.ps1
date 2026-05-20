@@ -64,6 +64,12 @@ Write-Output "=== Installing GigERTSPStreamer to dist\ ===" | Tee-Object -FilePa
 & cmake --install $RTSPB --prefix $DIST 2>&1 | Tee-Object -FilePath $LOG -Append
 if ($LASTEXITCODE -ne 0) { Write-Output "INSTALL FAILED (GigERTSPStreamer)"; exit $LASTEXITCODE }
 
+# ── Clean up build directories (all deployable files are now in dist\) ───────
+Write-Output "=== Removing build directories ===" | Tee-Object -FilePath $LOG -Append
+Remove-Item -Recurse -Force $BUILD  -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force $RTSPB  -ErrorAction SilentlyContinue
+Write-Output "Build directories removed." | Tee-Object -FilePath $LOG -Append
+
 # ── Done ─────────────────────────────────────────────────────────────────────
 Write-Output "" | Tee-Object -FilePath $LOG -Append
 Write-Output "=== BUILD SUCCEEDED ===" | Tee-Object -FilePath $LOG -Append

@@ -40,8 +40,12 @@ public:
                         int& out_width, int& out_height,
                         int64_t& out_timestamp_ms);
 
-    int Width()  const { return width_;  }
-    int Height() const { return height_; }
+    int     Width()             const { return width_;  }
+    int     Height()            const { return height_; }
+    int64_t LatestTimestampMs() {
+        std::lock_guard<std::mutex> lk(mutex_);
+        return timestamp_ms_;
+    }
 
 private:
     void GrabLoop();
