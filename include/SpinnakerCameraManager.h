@@ -167,7 +167,7 @@ private:
     void CameraAcquisitionThread(Spinnaker::CameraPtr camera, int32_t camera_id);
     void DebayerThread(int32_t camera_id);
     void DiskSaveLoop();
-    void RecordFrameTime(int32_t camera_id);
+    void RecordFrameTime(int32_t camera_id, int64_t hardware_timestamp_us);
 
     SharedMemoryManager&              shm_;
     Spinnaker::SystemPtr              system_;

@@ -282,19 +282,19 @@ Offset 0                    SharedMemoryHeader (368 bytes)
   ├─ image_width / height       int32                SHM max allocation size
   ├─ image_channels             int32                always 1 (Mono8) unless changed
   ├─ single_image_size          size_t               bytes per buffer slot
-  ├─ pool_size                  int32                always 32
+  ├─ pool_size                  int32                always 40
   ├─ num_cameras                int32
-  ├─ buffer_camera_id[32]       int32[]              which camera wrote each slot
-  ├─ buffer_width[32]           int32[]              actual ROI width per slot
-  ├─ buffer_height[32]          int32[]              actual ROI height per slot
-  ├─ buffer_channels[32]        int32[]              1=raw Bayer, 3=BGR8/RGB8
-  ├─ buffer_timestamp_us[32]    int64[]              camera hardware clock → wall-clock µs (via ResyncTimestamp offset); falls back to system_clock if TimestampLatch unavailable
-  └─ reference_counts[32]       atomic<int32>[]      -1=writing, 0=free, N=readers
+  ├─ buffer_camera_id[40]       int32[]              which camera wrote each slot
+  ├─ buffer_width[40]           int32[]              actual ROI width per slot
+  ├─ buffer_height[40]          int32[]              actual ROI height per slot
+  ├─ buffer_channels[40]        int32[]              1=raw Bayer, 3=BGR8/RGB8
+  ├─ buffer_timestamp_us[40]    int64[]              camera hardware clock → wall-clock µs (via ResyncTimestamp offset); falls back to system_clock if TimestampLatch unavailable
+  └─ reference_counts[40]       atomic<int32>[]      -1=writing, 0=free, N=readers
 
 Offset 368                  Pixel data pool
   ├─ slot 0                     single_image_size bytes
   ├─ slot 1                     single_image_size bytes
-  └─ ...  (32 slots total, 8 per camera)
+  └─ ...  (40 slots total, 20 per camera)
 ```
 
 > **Important:** Use `buffer_width[idx]` and `buffer_height[idx]`, not `image_width`/`image_height`, to determine actual pixel dimensions — they differ when the camera ROI has been changed at runtime.

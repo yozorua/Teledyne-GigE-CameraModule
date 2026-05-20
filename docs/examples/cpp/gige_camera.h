@@ -59,8 +59,8 @@
 
 namespace gige_detail {
 
-static constexpr int32_t POOL_SIZE   = 32;  // 8 slots × MAX_CAMERAS
-static constexpr int32_t MAX_CAMERAS = 4;
+static constexpr int32_t POOL_SIZE   = 40;  // 20 slots × MAX_CAMERAS
+static constexpr int32_t MAX_CAMERAS = 2;
 static constexpr LPCSTR  SHM_NAME    = "Global\\CameraImageBufferPool";
 
 struct ShmHeader {

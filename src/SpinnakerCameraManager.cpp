@@ -377,17 +377,17 @@ void SpinnakerCameraManager::CameraAcquisitionThread(Spinnaker::CameraPtr camera
         // GigE cameras pad each row so stride >= width * bytes_per_pixel.
         // Image::Create() in the debayer thread assumes tight packing (no padding),
         // so we strip the padding here by copying row-by-row.
+
+        // Prefer the camera's hardware timestamp (latched at frame exposure).
+        // Fall back to system_clock if TimestampLatch was unavailable.
+        // Declared outside the lock block so it's visible to RecordFrameTime below.
+        const int64_t ts_offset = cam_ts_offset_ns_[camera_id].load(std::memory_order_acquire);
+        const int64_t now_us = (ts_offset != TS_OFFSET_UNAVAIL)
+            ? (static_cast<int64_t>(image->GetTimeStamp()) + ts_offset) / 1000
+            : std::chrono::duration_cast<std::chrono::microseconds>(
+                  std::chrono::system_clock::now().time_since_epoch()).count();
+
         {
-            // Prefer the camera's hardware timestamp (latched at frame exposure).
-            // Fall back to system_clock if TimestampLatch was unavailable.
-            const int64_t offset = cam_ts_offset_ns_[camera_id].load(std::memory_order_acquire);
-            int64_t now_us;
-            if (offset != TS_OFFSET_UNAVAIL) {
-                now_us = (static_cast<int64_t>(image->GetTimeStamp()) + offset) / 1000;
-            } else {
-                now_us = std::chrono::duration_cast<std::chrono::microseconds>(
-                             std::chrono::system_clock::now().time_since_epoch()).count();
-            }
 
             const std::size_t img_w      = image->GetWidth();
             const std::size_t img_h      = image->GetHeight();
@@ -421,7 +421,7 @@ void SpinnakerCameraManager::CameraAcquisitionThread(Spinnaker::CameraPtr camera
         image->Release();
 
         raw_cv_[camera_id].notify_one();
-        RecordFrameTime(camera_id);
+        RecordFrameTime(camera_id, now_us);
     }
 }
 
@@ -754,15 +754,11 @@ void SpinnakerCameraManager::DiskSaveLoop() {
 // FPS tracking (per-camera)
 // ─────────────────────────────────────────────────────────────────────────────
 
-void SpinnakerCameraManager::RecordFrameTime(int32_t camera_id) {
-    const int64_t now_us =
-        std::chrono::duration_cast<std::chrono::microseconds>(
-            std::chrono::steady_clock::now().time_since_epoch())
-        .count();
-
+void SpinnakerCameraManager::RecordFrameTime(int32_t camera_id,
+                                              int64_t hardware_timestamp_us) {
     std::lock_guard<std::mutex> lk(camera_fps_mutex_[camera_id]);
     auto& times = camera_frame_times_[camera_id];
-    times.push_back(now_us);
+    times.push_back(hardware_timestamp_us);
     while (times.size() > FPS_WINDOW)
         times.pop_front();
 

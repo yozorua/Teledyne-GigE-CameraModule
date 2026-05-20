@@ -10,8 +10,8 @@
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-static constexpr int32_t POOL_SIZE   = 32;  // 8 slots × MAX_CAMERAS
-static constexpr int32_t MAX_CAMERAS = 4;   // maximum supported cameras
+static constexpr int32_t POOL_SIZE   = 40;  // 20 slots × MAX_CAMERAS
+static constexpr int32_t MAX_CAMERAS = 2;   // maximum supported cameras
 static constexpr LPCSTR  SHM_NAME    = "Global\\CameraImageBufferPool";
 
 /// Sentinel value stored in reference_counts[i] while the producer is writing
