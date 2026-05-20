@@ -369,7 +369,10 @@ private:
                                             : "n/a (node unavailable)") << '\n'
                   << "  EV comp    : " << (s.ev_compensation() != 0.0f || !s.exposure_auto().empty()
                                             ? std::to_string(s.ev_compensation()) + " EV"
-                                            : "n/a (node unavailable)") << '\n';
+                                            : "n/a (node unavailable)") << '\n'
+                  << "  link speed : " << (s.link_speed_bps() > 0
+                                            ? std::to_string(s.link_speed_bps() / 1'000'000) + " MB/s"
+                                            : "n/a") << '\n';
     }
 
     std::unique_ptr<camaramodule::CameraControl::Stub> stub_;

@@ -35,10 +35,10 @@ vcpkg install grpc protobuf --triplet x64-windows
 The easiest way is the provided PowerShell script, which sources the MSVC x64 environment automatically:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File build_camera.ps1
+powershell -ExecutionPolicy Bypass -File build.ps1
 ```
 
-The script (located at the repo root) configures and builds both executables in one step. Outputs are written to `build_camera.log` on the Desktop.
+The script (located at the repo root) configures and builds all three executables in one step. Outputs are written to `build.log` at the repo root.
 
 ### Manual build (first time)
 
@@ -85,10 +85,11 @@ cmake --build build-debug --parallel
 |---|---|
 | `build\GigECameraModule.exe` | Camera server |
 | `build\GigEDebugClient.exe` | Debug REPL |
+| `modules\rtsp-streamer\build\GigERTSPStreamer.exe` | RTSP / RTP H.264 streamer |
 | `build\*.dll` | vcpkg runtime DLLs (copied automatically by `VCPKG_APPLOCAL_DEPS`) |
-| `dist\` | Self-contained deployment folder (exe + all DLLs) |
+| `dist\` | Self-contained deployment folder (all exe + all DLLs) |
 
-`cmake --install build --prefix dist` (run by `build_camera.ps1` automatically) produces the `dist\` folder.
+`cmake --install` steps (run by `build.ps1` automatically) produce the `dist\` folder containing all three executables and their runtime DLLs.
 
 ---
 
@@ -100,7 +101,7 @@ Copy the entire `dist\` folder to the target machine. It is self-contained — n
 dist\
   GigECameraModule.exe       Camera server (requires Administrator)
   GigEDebugClient.exe        gRPC REPL (no admin, no cameras needed)
-  GigERtspServer.exe         RTSP stream server
+  GigERTSPStreamer.exe       RTSP/RTP H.264 streamer (server or push mode)
 
   — gRPC / protobuf —
   abseil_dll.dll
@@ -112,7 +113,7 @@ dist\
   re2.dll
   zlib1.dll
 
-  — FFmpeg (H.264 encoder, used by GigERtspServer) —
+  — FFmpeg (H.264 encoder, used by GigERTSPStreamer) —
   avcodec-62.dll
   avutil-60.dll
   swscale-9.dll
@@ -141,7 +142,7 @@ However, `GigECameraModule.exe` **does** require the Spinnaker **GigE Vision net
 3. Reboot if prompted
 4. Run `GigECameraModule.exe` as Administrator
 
-> `GigEDebugClient.exe` and `GigERtspServer.exe` have **no Spinnaker dependency** and work on any machine with network access to the server — no driver or SDK installation needed.
+> `GigEDebugClient.exe` and `GigERTSPStreamer.exe` have **no Spinnaker dependency** and work on any machine with network access to the server — no driver or SDK installation needed.
 
 ---
 
@@ -310,16 +311,16 @@ The producer uses CAS `0 → -1` to claim a buffer, copies the image, then store
 
 ### GigE Bandwidth Management
 
-The module targets **10 GigE** (10 Gbit/s = 1 250 MB/s) links.  On startup it applies two settings to every camera:
+On startup the module applies two settings to every camera:
 
 | GenICam node | Value | Reason |
 |---|---|---|
 | `GevSCPSPacketSize` | 9 000 bytes | Jumbo frames — reduces per-packet CPU overhead at high frame rates |
-| `DeviceLinkThroughputLimit` | `1 250 000 000 ÷ camera_count` bytes/s | Divides the 10 Gbit/s budget equally so all cameras share the link without overrunning the NIC |
+| `DeviceLinkThroughputLimit` | `600 000 000` bytes/s | Caps each camera independently at 600 MB/s |
 
-For a single camera the full 1 250 MB/s is available; with two cameras each gets 625 MB/s, and so on.
+Each camera is capped at **600 MB/s regardless of how many cameras are active**.
 
-> **Using a 1 GigE NIC instead?**  Change the constant `GIGE_MAX_BANDWIDTH_BPS` in `src/SpinnakerCameraManager.cpp` from `1'250'000'000` to `125'000'000` and rebuild.
+> To change the per-camera bandwidth cap, update the constant `GIGE_MAX_BANDWIDTH_BPS` in `src/SpinnakerCameraManager.cpp` and rebuild. For example, set it to `1'250'000'000` for a full 10 GigE link.
 
 ---
 
@@ -422,6 +423,7 @@ See `proto/camera_service.proto`.  Package name: `camaramodule`.
 | `fps` | — | float | Computed from per-camera frame timestamps (last 30 frames) |
 | `acquiring` | — | bool | Whether the acquisition thread is currently running |
 | `ev_compensation` | `AutoExposureEVCompensation` | float | EV offset for auto-exposure; 0 if node unavailable |
+| `link_speed_bps` | `DeviceLinkThroughputLimit` | int64 | Active link throughput cap in bytes/s; 0 if node unavailable |
 
 ### `SetParameter` — settable GenICam nodes
 
@@ -459,6 +461,79 @@ See `proto/camera_service.proto`.  Package name: `camaramodule`.
 | `DeviceLinkThroughputLimit` | Bytes/s; auto-applied per camera on start |
 
 ROI and binning nodes require acquisition to be stopped first. Float nodes (e.g. `ExposureTime`, `Gain`) can be changed live.
+
+---
+
+## GigERTSPStreamer
+
+`GigERTSPStreamer.exe` connects to a running `GigECameraModule.exe` via gRPC, grabs frames from shared memory, H.264-encodes them with FFmpeg + libx264, and delivers the stream in one of two modes:
+
+| Mode | Description |
+|---|---|
+| **server** | Hosts a minimal RTSP/TCP server; any player connects by URL |
+| **push** | Sends raw H.264/RTP over UDP to a fixed destination (no RTSP handshake) |
+
+### Prerequisites
+
+FFmpeg with libx264 must be available via vcpkg:
+
+```cmd
+vcpkg install ffmpeg[x264] --triplet x64-windows
+```
+
+### Usage
+
+```cmd
+dist\GigERTSPStreamer.exe [options]
+
+  --grpc <addr>          GigECameraModule gRPC address  (default: localhost:50051)
+  --cameras <ids>        Comma-separated camera IDs     (default: 0)
+  --mode server|push     Streaming mode                 (default: server)
+  --port <n>             RTSP listen port [server mode] (default: 8554)
+  --target <host:port>   RTP push destination [push]    (default: 127.0.0.1:5004)
+  --fps <n>              Target frame rate               (default: 30)
+  --bitrate <kbps>       H.264 bitrate                  (default: 4000)
+```
+
+### Server mode
+
+Each camera is accessible at its own RTSP URL:
+
+```
+rtsp://host:8554/cam0    ← camera 0
+rtsp://host:8554/cam1    ← camera 1
+```
+
+Open with VLC, ffplay, or any RTSP-capable player:
+
+```cmd
+:: Single camera (default)
+dist\GigERTSPStreamer.exe --mode server --port 8554
+
+:: Two cameras, custom bitrate
+dist\GigERTSPStreamer.exe --cameras 0,1 --mode server --bitrate 8000
+
+:: Play in ffplay
+ffplay rtsp://localhost:8554/cam0
+```
+
+### Push mode (raw RTP/UDP)
+
+Camera N is sent to `target_host : target_port + N×2` — no RTSP negotiation, ideal for low-latency local pipelines:
+
+```cmd
+:: Push camera 0 to 127.0.0.1:5004
+dist\GigERTSPStreamer.exe --mode push --target 127.0.0.1:5004
+
+:: Push cameras 0 and 1 (→ :5004 and :5006)
+dist\GigERTSPStreamer.exe --cameras 0,1 --mode push --target 127.0.0.1:5004
+
+:: Receive with ffplay or VLC
+ffplay rtp://0.0.0.0:5004
+vlc rtp://@:5004
+```
+
+Stop with `Ctrl+C` — all streams are cleanly torn down.
 
 ---
 

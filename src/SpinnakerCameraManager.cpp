@@ -25,8 +25,8 @@ namespace fs = std::filesystem;
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Combined 10 GigE link cap: 10 Gbit/s expressed in bytes/s
-static constexpr int64_t  GIGE_MAX_BANDWIDTH_BPS = 1'250'000'000LL;
+/// Default per-camera link cap: 600 MB/s
+static constexpr int64_t  GIGE_MAX_BANDWIDTH_BPS = 600'000'000LL;
 
 /// IEEE 802.3 jumbo frame MTU that avoids per-packet overhead
 static constexpr uint32_t JUMBO_PACKET_SIZE = 9000;
@@ -307,15 +307,11 @@ void SpinnakerCameraManager::ConfigureCamera(Spinnaker::CameraPtr& camera) {
     // Divide the 1 Gbit/s budget equally among all cameras so their combined
     // traffic stays within the NIC's capability.
     {
-        const int64_t cam_count = static_cast<int64_t>(
-            cameras_.empty() ? 1 : cameras_.size());
-        const int64_t per_camera_bps = GIGE_MAX_BANDWIDTH_BPS / cam_count;
-
         CIntegerPtr limit = nm.GetNode("DeviceLinkThroughputLimit");
         if (IsAvailable(limit) && IsWritable(limit)) {
             const int64_t clamped =
                 std::max(limit->GetMin(),
-                         std::min(per_camera_bps, limit->GetMax()));
+                         std::min(GIGE_MAX_BANDWIDTH_BPS, limit->GetMax()));
             limit->SetValue(clamped);
         }
     }
@@ -988,6 +984,12 @@ bool SpinnakerCameraManager::GetCameraInfo(int32_t camera_id, CameraInfo& info) 
     info.exposure_auto   = readEnum("ExposureAuto");
     info.gain_auto       = readEnum("GainAuto");
     info.ev_compensation = readFloat("AutoExposureEVCompensation");
+
+    {
+        CIntegerPtr p = nm.GetNode("DeviceLinkThroughputLimit");
+        if (IsAvailable(p) && IsReadable(p))
+            info.link_speed_bps = static_cast<int64_t>(p->GetValue());
+    }
 
     return true;
 }

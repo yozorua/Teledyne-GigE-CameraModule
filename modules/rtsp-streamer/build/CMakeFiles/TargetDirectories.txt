@@ -1,0 +1,7 @@
+C:/Users/yozorua/Desktop/Teledyne-GigE-CameraModule/modules/rtsp-streamer/build/CMakeFiles/proto_gen_streamer.dir
+C:/Users/yozorua/Desktop/Teledyne-GigE-CameraModule/modules/rtsp-streamer/build/CMakeFiles/GigERTSPStreamer.dir
+C:/Users/yozorua/Desktop/Teledyne-GigE-CameraModule/modules/rtsp-streamer/build/CMakeFiles/edit_cache.dir
+C:/Users/yozorua/Desktop/Teledyne-GigE-CameraModule/modules/rtsp-streamer/build/CMakeFiles/rebuild_cache.dir
+C:/Users/yozorua/Desktop/Teledyne-GigE-CameraModule/modules/rtsp-streamer/build/CMakeFiles/list_install_components.dir
+C:/Users/yozorua/Desktop/Teledyne-GigE-CameraModule/modules/rtsp-streamer/build/CMakeFiles/install.dir
+C:/Users/yozorua/Desktop/Teledyne-GigE-CameraModule/modules/rtsp-streamer/build/CMakeFiles/install/local.dir
