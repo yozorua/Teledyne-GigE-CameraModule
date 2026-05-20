@@ -269,6 +269,27 @@ public:
     // ── Frame acquisition ─────────────────────────────────────────────────────
 
     /**
+     * Read the hardware timestamp of the latest available frame directly from
+     * shared memory — no gRPC round-trip, no pixel copy.
+     *
+     * Use this in polling loops to detect new frames cheaply before committing
+     * to a full grab() call.
+     *
+     * @param camera_id  0-based camera index; -1 for any camera.
+     * @return Timestamp in µs since Unix epoch, or -1 if SHM is not open or
+     *         no frame has been published yet.
+     */
+    int64_t latest_timestamp_us(int32_t camera_id = 0) {
+        ensure_shm();
+        const auto* hdr = shm_.header();
+        const int32_t idx = (camera_id < 0)
+            ? hdr->latest_buffer_index.load(std::memory_order_acquire)
+            : hdr->latest_buffer_per_camera[camera_id].load(std::memory_order_acquire);
+        if (idx < 0 || idx >= hdr->pool_size) return -1;
+        return hdr->buffer_timestamp_us[idx];
+    }
+
+    /**
      * Grab the latest frame from a specific camera.
      *
      * Pixel data is copied out of shared memory before returning — no explicit

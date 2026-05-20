@@ -50,30 +50,32 @@ bool FrameGrabber::GetLatestFrame(std::vector<uint8_t>& out_pixels,
 }
 
 void FrameGrabber::GrabLoop() {
-    int64_t last_ts = -1;
+    int64_t last_ts_us = -1;
 
     while (running_.load(std::memory_order_acquire)) {
+        // Cheap SHM-only timestamp check — zero gRPC, zero pixel copy.
+        // Only proceed to grab() when the camera has actually produced a new frame.
+        const int64_t shm_ts = cam_.latest_timestamp_us(camera_id_);
+        if (shm_ts <= 0 || shm_ts == last_ts_us) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            continue;
+        }
+
+        // New frame detected — now pay the cost of the full gRPC + memcpy.
         auto frame = cam_.grab(camera_id_);
         if (!frame) {
-            // No frame available yet — brief wait before retry.
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
             continue;
         }
 
-        // Skip duplicate frames (same timestamp).
-        const int64_t ts_ms = frame->timestamp_us / 1000;
-        if (ts_ms == last_ts) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            continue;
-        }
-        last_ts = ts_ms;
+        last_ts_us = frame->timestamp_us;
 
         {
             std::lock_guard<std::mutex> lk(mutex_);
             pixels_       = std::move(frame->pixels);
             width_        = frame->width;
             height_       = frame->height;
-            timestamp_ms_ = ts_ms;
+            timestamp_ms_ = frame->timestamp_us / 1000;
             has_frame_    = true;
         }
         cv_.notify_all();
