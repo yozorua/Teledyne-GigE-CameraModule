@@ -1,5 +1,7 @@
 #include "SharedMemoryManager.h"
 
+#include <sddl.h>   // ConvertStringSecurityDescriptorToSecurityDescriptorA
+
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -15,16 +17,41 @@ bool SharedMemoryManager::Initialize(int32_t width, int32_t height, int32_t chan
     const std::size_t image_size = static_cast<std::size_t>(width) * height * channels;
     const std::size_t total_size = sizeof(SharedMemoryHeader) + image_size * POOL_SIZE;
 
+    // Build a security descriptor that allows any process (any integrity level)
+    // to open this mapping for write.  This lets non-elevated GigELiveView use
+    // grab_direct() (SHM atomic pin/unpin) instead of falling back to gRPC.
+    //
+    // D:(A;;GA;;;WD)  — DACL: allow Everyone (WD) full access (GA)
+    // S:(ML;;NW;;;LW) — SACL: mandatory label Low (LW); NW = no-write-up policy,
+    //                   so only processes BELOW Low are blocked from writing.
+    //                   All user processes are Medium or above → write allowed.
+    PSECURITY_DESCRIPTOR pSD = nullptr;
+    SECURITY_ATTRIBUTES sa{};
+    sa.nLength        = sizeof(sa);
+    sa.bInheritHandle = FALSE;
+    const bool sd_ok  = ConvertStringSecurityDescriptorToSecurityDescriptorA(
+        "D:(A;;GA;;;WD)S:(ML;;NW;;;LW)", SDDL_REVISION_1, &pSD, nullptr);
+    if (sd_ok) sa.lpSecurityDescriptor = pSD;
+
     mapping_handle_ = CreateFileMappingA(
         INVALID_HANDLE_VALUE,
-        nullptr,
+        sd_ok ? &sa : nullptr,
         PAGE_READWRITE,
         static_cast<DWORD>(total_size >> 32),
         static_cast<DWORD>(total_size & 0xFFFFFFFFULL),
         SHM_NAME);
 
+    if (pSD) LocalFree(pSD);
+
     if (mapping_handle_ == NULL) {
-        std::cerr << "[SharedMemory] CreateFileMapping failed: " << GetLastError() << '\n';
+        const DWORD err = GetLastError();
+        std::cerr << "[SharedMemory] CreateFileMapping failed: error " << err;
+        if (err == ERROR_ACCESS_DENIED || err == ERROR_PRIVILEGE_NOT_HELD)
+            std::cerr << " — process must be run as Administrator (elevated, not just an admin user account)";
+        else if (err == ERROR_COMMITMENT_LIMIT || err == ERROR_NOT_ENOUGH_MEMORY)
+            std::cerr << " — not enough virtual memory / page file to commit "
+                      << (total_size / 1024 / 1024) << " MB; reduce POOL_SIZE or increase page file";
+        std::cerr << '\n';
         return false;
     }
 

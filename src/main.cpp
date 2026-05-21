@@ -86,9 +86,10 @@ int main(int argc, char* argv[]) {
 
     // ── 3. Shared memory ──────────────────────────────────────────────────────
     if (!shm.Initialize(shm_width, shm_height, DEFAULT_CHANNELS)) {
-        std::cerr << "[Main] FATAL: Failed to create shared memory.\n"
-                  << "       The process must be run as Administrator to create\n"
-                  << "       objects in the Global\\ namespace.\n";
+        std::cerr << "[Main] FATAL: Failed to create shared memory (see error above).\n"
+                  << "       Fix: right-click the exe or your terminal -> 'Run as Administrator'.\n"
+                  << "       Note: being in the Administrators group is not enough on Windows;\n"
+                  << "       the process token must be elevated (UAC).\n";
         return 1;
     }
 
