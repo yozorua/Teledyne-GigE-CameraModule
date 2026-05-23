@@ -50,10 +50,16 @@ LiveViewApp::~LiveViewApp() {
 void LiveViewApp::Disconnect() {
     for (auto& p : panels_) {
         if (p.feed) p.feed->Stop();
-        if (p.texture) {
-            const GLuint tex = static_cast<GLuint>(p.texture);
-            glDeleteTextures(1, &tex);
-            p.texture = 0;
+        if (p.dma_fence) {
+            glDeleteSync(static_cast<GLsync>(p.dma_fence));
+            p.dma_fence = nullptr;
+        }
+        for (uint32_t* tp : {&p.texture, &p.tex_back}) {
+            if (*tp) {
+                GLuint t = static_cast<GLuint>(*tp);
+                glDeleteTextures(1, &t);
+                *tp = 0;
+            }
         }
         for (int i = 0; i < 2; ++i) {
             if (p.pbo[i]) {
@@ -92,14 +98,17 @@ void LiveViewApp::Connect(const std::string& addr) {
             panel.camera_id = i;
             panel.feed      = std::make_unique<CameraFeed>(addr, i);
 
-            GLuint tex = 0;
-            glGenTextures(1, &tex);
-            glBindTexture(GL_TEXTURE_2D, tex);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            panel.texture = static_cast<uint32_t>(tex);
+            auto make_tex = [&]() -> GLuint {
+                GLuint t = 0; glGenTextures(1, &t);
+                glBindTexture(GL_TEXTURE_2D, t);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                return t;
+            };
+            panel.texture  = make_tex();
+            panel.tex_back = make_tex();
 
             if (auto inf = panel.feed->QueryInfo()) {
                 panel.info = *inf;
@@ -128,7 +137,10 @@ void LiveViewApp::UploadTexture(CameraPanel& panel,
     using clk = std::chrono::steady_clock;
     const auto t_upload_start = clk::now();
 
-    const GLuint  tex     = static_cast<GLuint>(panel.texture);
+    // Always write into tex_back.  tex_front (panel.texture) is untouched here
+    // so the GPU can render from it concurrently on the graphics engine while
+    // the copy engine DMAs new data into tex_back.
+    const GLuint  tex     = static_cast<GLuint>(panel.tex_back);
     const GLenum  int_fmt = (channels == 1) ? GL_R8  : GL_RGB8;
     const GLenum  pix_fmt = (channels == 1) ? GL_RED : GL_BGR;
     const GLsizei sz      = static_cast<GLsizei>(w) * h * channels;
@@ -148,56 +160,61 @@ void LiveViewApp::UploadTexture(CameraPanel& panel,
             glBindBuffer(GL_PIXEL_UNPACK_BUFFER, static_cast<GLuint>(panel.pbo[i]));
             glBufferData(GL_PIXEL_UNPACK_BUFFER, sz, nullptr, GL_STREAM_DRAW);
         }
-        panel.pbo_sz = sz;
+        panel.pbo_sz    = sz;
+        panel.pbo_ready = false;  // next frame: no valid previous-buffer yet
+        panel.pbo_idx   = 0;
     }
 
-    // Double-buffered upload: CPU writes pbo[pbo_idx]; GPU DMAs from pbo[1-pbo_idx].
-    // GL_MAP_UNSYNCHRONIZED_BIT — no GPU wait; safe because the GPU is using the
-    // *other* PBO right now.  GL_MAP_INVALIDATE_BUFFER_BIT — discard stale content.
-    const GLuint pbo = static_cast<GLuint>(panel.pbo[panel.pbo_idx]);
-    panel.pbo_idx    = 1 - panel.pbo_idx;
+    // True double-buffer:
+    //   CPU writes into pbo[write_idx] (no GPU wait — UNSYNCHRONIZED).
+    //   GPU DMAs from pbo[upload_idx] = last frame's buffer.
+    // On the very first call (pbo_ready=false) both indices are the same so
+    // the first frame is uploaded immediately without a 1-frame-stale display.
+    const int write_idx  = panel.pbo_idx;
+    const int upload_idx = panel.pbo_ready ? (1 - panel.pbo_idx) : panel.pbo_idx;
+    panel.pbo_idx   = 1 - panel.pbo_idx;
+    panel.pbo_ready = true;
 
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
+    const GLuint write_pbo  = static_cast<GLuint>(panel.pbo[write_idx]);
+    const GLuint upload_pbo = static_cast<GLuint>(panel.pbo[upload_idx]);
+
+    // ── Step 1: CPU → PBO (write-combined, no GPU sync) ──────────────────────
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, write_pbo);
     void* dst = glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, sz,
         GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
 
     if (dst) {
         memcpy(dst, data, static_cast<size_t>(sz));
         glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
-
-        glBindTexture(GL_TEXTURE_2D, tex);
-        if (w != panel.tex_w || h != panel.tex_h || channels != panel.tex_ch) {
-            // Allocates VRAM storage and uploads from PBO offset 0.
-            glTexImage2D(GL_TEXTURE_2D, 0, int_fmt, w, h, 0,
-                         pix_fmt, GL_UNSIGNED_BYTE, nullptr);
-            panel.tex_w = w; panel.tex_h = h; panel.tex_ch = channels;
-            const GLint sg[4] = { GL_RED, GL_RED, GL_RED, GL_ONE };
-            const GLint sr[4] = { GL_RED, GL_GREEN, GL_BLUE, GL_ONE };
-            glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA,
-                             (channels == 1) ? sg : sr);
-        } else {
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h,
-                            pix_fmt, GL_UNSIGNED_BYTE, nullptr);
-        }
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-    } else {
-        // glMapBufferRange failed — synchronous direct upload.
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-        glBindTexture(GL_TEXTURE_2D, tex);
-        if (w != panel.tex_w || h != panel.tex_h || channels != panel.tex_ch) {
-            glTexImage2D(GL_TEXTURE_2D, 0, int_fmt, w, h, 0,
-                         pix_fmt, GL_UNSIGNED_BYTE, data);
-            panel.tex_w = w; panel.tex_h = h; panel.tex_ch = channels;
-            const GLint sg[4] = { GL_RED, GL_RED, GL_RED, GL_ONE };
-            const GLint sr[4] = { GL_RED, GL_GREEN, GL_BLUE, GL_ONE };
-            glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA,
-                             (channels == 1) ? sg : sr);
-        } else {
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h,
-                            pix_fmt, GL_UNSIGNED_BYTE, data);
-        }
     }
 
+    // ── Step 2: PBO[upload_idx] → VRAM texture (last frame's data) ───────────
+    // Bind the upload PBO so glTexSubImage2D reads from it, not the write PBO.
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, dst ? upload_pbo : 0);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    if (w != panel.tex_back_w || h != panel.tex_back_h || channels != panel.tex_back_ch) {
+        glTexImage2D(GL_TEXTURE_2D, 0, int_fmt, w, h, 0,
+                     pix_fmt, GL_UNSIGNED_BYTE, dst ? nullptr : data);
+        panel.tex_back_w = w; panel.tex_back_h = h; panel.tex_back_ch = channels;
+        const GLint sg[4] = { GL_RED, GL_RED, GL_RED, GL_ONE };
+        const GLint sr[4] = { GL_RED, GL_GREEN, GL_BLUE, GL_ONE };
+        glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA,
+                         (channels == 1) ? sg : sr);
+    } else {
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h,
+                        pix_fmt, GL_UNSIGNED_BYTE, dst ? nullptr : data);
+    }
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+
+    // Insert a fence immediately after the DMA command.  RenderMainView checks it
+    // non-blocking before the next upload — if not signaled yet the upload is
+    // skipped so we never queue DMA commands faster than the GPU can drain them.
+    // (glFlush is intentionally absent: glfwSwapBuffers provides the flush, and
+    // an early flush here is what caused WDDM to accumulate DMA batches → OOM.)
+    if (panel.dma_fence)
+        glDeleteSync(static_cast<GLsync>(panel.dma_fence));
+    panel.dma_fence      = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+    panel.tex_back_ready = true;  // signal RenderMainView to swap at next frame start
     panel.transfer_ms = std::chrono::duration<float, std::milli>(
         clk::now() - t_upload_start).count();
 }
@@ -272,8 +289,36 @@ void LiveViewApp::RenderMainView(float delta_time_s) {
         }
     }
 
+    // ── Swap tex_back → tex_front for panels whose DMA finished last frame ─────
+    // The GPU submitted DMA[tex_back] and render[tex_front] in the previous frame.
+    // Because they targeted different textures, NVIDIA runs them on separate engines
+    // (copy engine + graphics engine) in true parallel.  Now that glfwSwapBuffers
+    // has returned (GPU is done presenting), we can safely swap the references.
+    for (auto& p : panels_) {
+        if (p.tex_back_ready) {
+            std::swap(p.texture,  p.tex_back);
+            std::swap(p.tex_w,    p.tex_back_w);
+            std::swap(p.tex_h,    p.tex_back_h);
+            std::swap(p.tex_ch,   p.tex_back_ch);
+            p.tex_back_ready = false;
+        }
+    }
+
     // ── Drain new frames into GL textures (all cameras, not just selected) ────
     for (auto& p : panels_) {
+        // Non-blocking fence check: if the GPU is still DMAs-ing last frame's tex_back,
+        // skip this upload entirely.  Do NOT consume IsNewFrame — it stays true so the
+        // next render call picks up the latest camera frame.  This prevents submitting
+        // DMA commands faster than the GPU can drain them (which caused OOM on WDDM).
+        if (p.dma_fence) {
+            const GLenum s = glClientWaitSync(
+                static_cast<GLsync>(p.dma_fence), 0, 0);
+            if (s == GL_TIMEOUT_EXPIRED || s == GL_WAIT_FAILED)
+                continue;  // GPU still busy — skip, render with current tex_front
+            glDeleteSync(static_cast<GLsync>(p.dma_fence));
+            p.dma_fence = nullptr;
+        }
+
         if (!p.feed->IsNewFrame()) continue;
 
         // Zero-copy path: pin SHM slot → memcpy SHM→PBO (one copy) → release pin.
@@ -311,6 +356,31 @@ void LiveViewApp::RenderMainView(float delta_time_s) {
         return;
     }
     ImGui::SameLine();
+
+    // Start / Stop acquisition
+    const bool acquiring = (sys_state_.status == "ACQUIRING" ||
+                            sys_state_.status == "PARTIAL");
+    if (acquiring) {
+        ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.55f, 0.12f, 0.12f, 1.f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.72f, 0.20f, 0.20f, 1.f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.85f, 0.30f, 0.30f, 1.f));
+        if (ImGui::Button("Stop Capture")) {
+            if (cam_) cam_->stop(-1);
+            sys_state_ = cam_->state();
+        }
+        ImGui::PopStyleColor(3);
+    } else {
+        ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.12f, 0.45f, 0.15f, 1.f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.60f, 0.22f, 1.f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.28f, 0.72f, 0.30f, 1.f));
+        if (ImGui::Button("Start Capture")) {
+            if (cam_) cam_->start(-1);
+            sys_state_ = cam_->state();
+        }
+        ImGui::PopStyleColor(3);
+    }
+    ImGui::SameLine();
+
     ImGui::Text("| %s | Cams: %d | Agg: %.1f fps",
                 sys_state_.status.c_str(),
                 sys_state_.connected_cameras,
@@ -456,6 +526,15 @@ void LiveViewApp::RenderInfoTab(CameraPanel& panel) {
     ImGui::SeparatorText("Frame Rate");
     ImGui::Text("Configured: %.1f fps", inf.frame_rate);
     ImGui::Text("Camera FPS: %.1f fps", inf.fps);  // SDK-measured on server
+    if (inf.exposure_us > 0.f) {
+        const float exp_limit = 1e6f / inf.exposure_us;
+        if (exp_limit < inf.frame_rate + 1.f) {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.f, 0.85f, 0.2f, 1.f));
+            ImGui::Text("Exp limit : %.1f fps", exp_limit);
+            ImGui::PopStyleColor();
+            ImGui::TextDisabled("  Exposure %.0f us caps max fps", inf.exposure_us);
+        }
+    }
 
     // ── Link ─────────────────────────────────────────────────────────────────
     if (inf.link_speed_bps > 0) {
@@ -522,32 +601,39 @@ void LiveViewApp::LoadParamsFromInfo(CameraPanel& panel) {
 
 void LiveViewApp::ApplyLiveParams(CameraPanel& panel) {
     if (!cam_) return;
-    auto& ps           = panel.params;
-    const int32_t cid  = panel.camera_id;
-    bool ok            = true;
+    auto& ps          = panel.params;
+    const int32_t cid = panel.camera_id;
+    std::string failed;
+
+    auto try_set = [&](bool ok, const char* name) {
+        if (!ok) { if (!failed.empty()) failed += ", "; failed += name; }
+    };
 
     // Apply auto modes first so manual values aren't immediately overridden.
-    ok &= cam_->set_exposure_auto(IdxToAutoMode(ps.exposure_auto_idx), cid);
-    if (ps.exposure_auto_idx == 0)   // "Off"
-        ok &= cam_->set_exposure(ps.exposure_us, cid);
+    try_set(cam_->set_exposure_auto(IdxToAutoMode(ps.exposure_auto_idx), cid), "ExposureAuto");
+    if (ps.exposure_auto_idx == 0)
+        try_set(cam_->set_exposure(ps.exposure_us, cid), "Exposure");
 
-    ok &= cam_->set_gain_auto(IdxToAutoMode(ps.gain_auto_idx), cid);
+    try_set(cam_->set_gain_auto(IdxToAutoMode(ps.gain_auto_idx), cid), "GainAuto");
     if (ps.gain_auto_idx == 0)
-        ok &= cam_->set_gain(ps.gain_db, cid);
+        try_set(cam_->set_gain(ps.gain_db, cid), "Gain");
 
-    ok &= cam_->set_gamma(ps.gamma, cid);
+    try_set(cam_->set_gamma(ps.gamma, cid), "Gamma");
 
-    ok &= cam_->set_param("AcquisitionFrameRateEnable", 0.f,
-                         ps.frame_rate_limit_enabled ? 1 : 0, cid);
+    // AcquisitionFrameRateEnable: boolean node, non-fatal if camera doesn't expose it.
+    cam_->set_param("AcquisitionFrameRateEnable", 0.f,
+                    ps.frame_rate_limit_enabled ? 1 : 0, cid);
     if (ps.frame_rate_limit_enabled && ps.frame_rate > 0.f)
-        ok &= cam_->set_frame_rate(ps.frame_rate, cid);
+        try_set(cam_->set_frame_rate(ps.frame_rate, cid), "FrameRate");
 
-    ok &= cam_->set_ev_compensation(ps.ev_compensation, cid);
+    // EV compensation is only writable when auto-exposure is active.
+    if (ps.exposure_auto_idx != 0)
+        cam_->set_ev_compensation(ps.ev_compensation, cid);
 
-    ps.apply_status = ok ? "[OK] Live params applied."
-                         : "[!] Some params failed — check camera state.";
+    ps.apply_status = failed.empty()
+        ? "[OK] Live params applied."
+        : "[!] Failed: " + failed;
 
-    // Pull fresh values so the UI reflects what the camera actually accepted.
     if (auto inf = panel.feed->QueryInfo()) {
         panel.info  = *inf;
         ps.loaded   = false;
@@ -559,30 +645,33 @@ void LiveViewApp::ApplyStopRequiredParams(CameraPanel& panel) {
     if (!cam_) return;
     auto& ps          = panel.params;
     const int32_t cid = panel.camera_id;
-    bool ok           = true;
+    std::string failed;
+
+    auto try_set = [&](bool ok, const char* name) {
+        if (!ok) { if (!failed.empty()) failed += ", "; failed += name; }
+    };
 
     ps.apply_status = "Stopping camera...";
-
     cam_->stop(cid);
 
     // ROI (offsets cleared first to avoid geometry constraint violations)
-    ok &= cam_->set_roi(ps.roi_width, ps.roi_height,
-                        ps.roi_offset_x, ps.roi_offset_y, cid);
+    try_set(cam_->set_roi(ps.roi_width, ps.roi_height,
+                          ps.roi_offset_x, ps.roi_offset_y, cid), "ROI");
 
     // Binning
-    ok &= cam_->set_param("BinningHorizontal", 0.f, ps.binning_h, cid);
-    ok &= cam_->set_param("BinningVertical",   0.f, ps.binning_v, cid);
+    try_set(cam_->set_param("BinningHorizontal", 0.f, ps.binning_h, cid), "BinningH");
+    try_set(cam_->set_param("BinningVertical",   0.f, ps.binning_v, cid), "BinningV");
 
-    // Link speed: UI in MB/s → bytes/s for the SDK
-    // Treated separately — not all cameras expose this node as writable.
+    // Link speed: not all cameras expose this as writable — non-fatal.
     const int32_t link_bps =
         static_cast<int32_t>(static_cast<int64_t>(ps.link_speed_mbps) * 1'000'000LL);
     const bool link_ok = cam_->set_param("DeviceLinkThroughputLimit", 0.f, link_bps, cid);
 
     cam_->start(cid);
 
-    if (!ok)
-        ps.apply_status = "[!] Some params failed. Camera restarted.";
+    if (!failed.empty())
+        ps.apply_status = "[!] Failed: " + failed
+                          + (link_ok ? "" : ", LinkSpeed");
     else if (!link_ok)
         ps.apply_status = "[OK] Applied. Link speed unchanged (read-only on this camera).";
     else
@@ -611,31 +700,68 @@ void LiveViewApp::RenderParamTab(CameraPanel& panel) {
     ImGui::TextDisabled("Changes take effect immediately.");
     ImGui::Spacing();
 
-    // Exposure Auto
-    ImGui::Text("Exp Auto:");
-    ImGui::SameLine(lbl_w);
-    ImGui::SetNextItemWidth(-1.f);
-    ImGui::Combo("##expauto", &ps.exposure_auto_idx, "Off\0Once\0Continuous\0");
+    // Exposure Auto — checkbox (Continuous) + Once button
+    {
+        bool exp_auto = (ps.exposure_auto_idx == 2);  // 2=Continuous
+        ImGui::Text("Auto Exp:");
+        ImGui::SameLine(lbl_w);
+        if (ImGui::Checkbox("##expauto", &exp_auto)) {
+            ps.exposure_auto_idx = exp_auto ? 2 : 0;
+            const char* mode = exp_auto ? "Continuous" : "Off";
+            if (cam_) cam_->set_exposure_auto(mode, panel.camera_id);
+            ps.apply_status = exp_auto ? "[OK] Auto exposure on." : "[OK] Auto exposure off.";
+        }
+        ImGui::SameLine();
+        ImGui::TextDisabled(exp_auto ? "Continuous" : "Off");
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Once##exponce")) {
+            ps.exposure_auto_idx = 1;
+            if (cam_) cam_->set_exposure_auto("Once", panel.camera_id);
+            ps.apply_status = "[OK] Exposure once triggered.";
+        }
+    }
 
-    // Exposure (editable only when auto is Off)
+    // Exposure value (greyed when auto is active; Set button applies immediately)
     {
         const bool manual = (ps.exposure_auto_idx == 0);
         if (!manual) ImGui::BeginDisabled();
         ImGui::Text("Exposure:");
         ImGui::SameLine(lbl_w);
-        ImGui::SetNextItemWidth(-1.f);
+        ImGui::SetNextItemWidth(-60.f);
         ImGui::InputFloat("##exp", &ps.exposure_us, 100.f, 1000.f, "%.0f us");
         ps.exposure_us = std::max(1.f, ps.exposure_us);
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Set##expset")) {
+            if (cam_) {
+                const bool ok = cam_->set_exposure(ps.exposure_us, panel.camera_id);
+                ps.apply_status = ok ? "[OK] Exposure set." : "[!] Failed: Exposure";
+            }
+        }
         if (!manual) ImGui::EndDisabled();
     }
 
-    // Gain Auto
-    ImGui::Text("Gain Auto:");
-    ImGui::SameLine(lbl_w);
-    ImGui::SetNextItemWidth(-1.f);
-    ImGui::Combo("##gainauto", &ps.gain_auto_idx, "Off\0Once\0Continuous\0");
+    // Gain Auto — checkbox (Continuous) + Once button
+    {
+        bool gain_auto = (ps.gain_auto_idx == 2);
+        ImGui::Text("Auto Gain:");
+        ImGui::SameLine(lbl_w);
+        if (ImGui::Checkbox("##gainauto", &gain_auto)) {
+            ps.gain_auto_idx = gain_auto ? 2 : 0;
+            const char* mode = gain_auto ? "Continuous" : "Off";
+            if (cam_) cam_->set_gain_auto(mode, panel.camera_id);
+            ps.apply_status = gain_auto ? "[OK] Auto gain on." : "[OK] Auto gain off.";
+        }
+        ImGui::SameLine();
+        ImGui::TextDisabled(gain_auto ? "Continuous" : "Off");
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Once##gainonce")) {
+            ps.gain_auto_idx = 1;
+            if (cam_) cam_->set_gain_auto("Once", panel.camera_id);
+            ps.apply_status = "[OK] Gain once triggered.";
+        }
+    }
 
-    // Gain (editable only when auto is Off)
+    // Gain value (greyed when auto is active)
     {
         const bool manual = (ps.gain_auto_idx == 0);
         if (!manual) ImGui::BeginDisabled();
@@ -668,11 +794,38 @@ void LiveViewApp::RenderParamTab(CameraPanel& panel) {
     ps.frame_rate = std::max(1.f, ps.frame_rate);
     if (!ps.frame_rate_limit_enabled) ImGui::EndDisabled();
 
-    // EV Compensation
-    ImGui::Text("EV Comp:");
-    ImGui::SameLine(lbl_w);
-    ImGui::SetNextItemWidth(-1.f);
-    ImGui::SliderFloat("##ev", &ps.ev_compensation, -3.f, 3.f, "%.1f EV");
+    // EV Compensation — greyed when ExposureAuto is Off
+    {
+        const bool ev_active = (ps.exposure_auto_idx != 0);
+        if (!ev_active) ImGui::BeginDisabled();
+        ImGui::Text("EV Comp:");
+        ImGui::SameLine(lbl_w);
+        ImGui::SetNextItemWidth(-1.f);
+        ImGui::SliderFloat("##ev", &ps.ev_compensation, -3.f, 3.f, "%.1f EV");
+        if (!ev_active) {
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            ImGui::TextDisabled("(needs Auto)");
+        }
+    }
+
+    // Debayer toggle — immediate apply; switches SHM between BGR8 (3ch) and raw Bayer (1ch)
+    {
+        ImGui::Text("Debayer:");
+        ImGui::SameLine(lbl_w);
+        bool deb = ps.debayer_enabled;
+        if (ImGui::Checkbox("##debayer", &deb)) {
+            ps.debayer_enabled = deb;
+            if (cam_) {
+                const bool ok = cam_->set_debayer_mode(deb ? "On" : "Off", panel.camera_id);
+                ps.apply_status = ok
+                    ? (deb ? "[OK] Debayer on (BGR8)." : "[OK] Debayer off (raw Bayer).")
+                    : "[!] Failed: DebayerMode";
+            }
+        }
+        ImGui::SameLine();
+        ImGui::TextDisabled(deb ? "On (BGR8)" : "Off (raw Bayer, 1ch)");
+    }
 
     ImGui::Spacing();
     if (ImGui::Button("Apply Live Params", ImVec2(-1.f, 0.f)))

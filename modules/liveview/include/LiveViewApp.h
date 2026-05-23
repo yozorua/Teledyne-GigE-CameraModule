@@ -32,6 +32,7 @@ struct ParamEditState {
     int   binning_v{1};
     int   link_speed_mbps{600};   // UI in MB/s; sent as bytes/s (× 1 000 000)
 
+    bool        debayer_enabled{true};  // false → raw Bayer (1ch, faster); true → BGR8
     std::string apply_status;     // feedback shown after Apply
     bool        loaded{false};    // false → re-init from panel.info on next render
 };
@@ -43,13 +44,23 @@ enum class AppState { Connect, Running };
 struct CameraPanel {
     int32_t                     camera_id{-1};
     std::unique_ptr<CameraFeed> feed;
-    uint32_t                    texture{0};      // GLuint
+    // Double-buffered textures: render from tex_front, DMA into tex_back.
+    // GPU copy engine (DMA) and graphics engine (render) run in parallel.
+    uint32_t                    texture{0};      // tex_front — rendered each frame
+    uint32_t                    tex_back{0};     // tex_back  — DMA target this frame
+    int                         tex_w{0};        // front texture allocated dimensions
+    int                         tex_h{0};
+    int                         tex_ch{0};
+    int                         tex_back_w{0};   // back texture allocated dimensions
+    int                         tex_back_h{0};
+    int                         tex_back_ch{0};
+    bool                        tex_back_ready{false}; // DMA queued to tex_back; swap at next frame start
+    void*                       dma_fence{nullptr};    // GLsync — signals when tex_back DMA completes
+
     uint32_t                    pbo[2]{0, 0};   // double-buffered PBOs — pre-allocated, never orphaned
     int                         pbo_idx{0};     // which PBO the CPU writes this frame
+    bool                        pbo_ready{false}; // false until first write; upload_idx trails write_idx by 1
     int64_t                     pbo_sz{0};      // currently allocated byte size (0 = not yet allocated)
-    int                         tex_w{0};
-    int                         tex_h{0};
-    int                         tex_ch{0};      // channels last uploaded (triggers glTexImage2D on change)
     int64_t                     last_ts_us{0};
     float                       transfer_ms{0.f};  // SHM→PBO memcpy wall-clock time
     GigeFrame                   fallback_frame_{};  // persistent buffer for non-admin gRPC fallback

@@ -150,7 +150,7 @@ bool SpinnakerCameraManager::StartCamera(int32_t camera_id) {
     camera_acquiring_[camera_id].store(true, std::memory_order_release);
 
     try {
-        ConfigureCamera(cameras_[camera_id]);
+        ConfigureCamera(cameras_[camera_id], camera_id);
         cameras_[camera_id]->BeginAcquisition();
         ComputeTimestampOffset(camera_id);
 
@@ -278,7 +278,7 @@ bool SpinnakerCameraManager::ResyncTimestamp(int32_t camera_id) {
 // Camera configuration
 // ─────────────────────────────────────────────────────────────────────────────
 
-void SpinnakerCameraManager::ConfigureCamera(Spinnaker::CameraPtr& camera) {
+void SpinnakerCameraManager::ConfigureCamera(Spinnaker::CameraPtr& camera, int32_t camera_id) {
     using namespace Spinnaker::GenApi;
 
     INodeMap& nm = camera->GetNodeMap();
@@ -303,10 +303,10 @@ void SpinnakerCameraManager::ConfigureCamera(Spinnaker::CameraPtr& camera) {
         }
     }
 
-    // ── Per-camera bandwidth throttle ─────────────────────────────────────────
-    // Divide the 1 Gbit/s budget equally among all cameras so their combined
-    // traffic stays within the NIC's capability.
-    {
+    // ── Per-camera bandwidth throttle (first start only) ──────────────────────
+    // Only applied on the very first BeginAcquisition so that a user-set
+    // DeviceLinkThroughputLimit survives stop/restart cycles.
+    if (!camera_link_set_[camera_id]) {
         CIntegerPtr limit = nm.GetNode("DeviceLinkThroughputLimit");
         if (IsAvailable(limit) && IsWritable(limit)) {
             const int64_t clamped =
@@ -314,6 +314,7 @@ void SpinnakerCameraManager::ConfigureCamera(Spinnaker::CameraPtr& camera) {
                          std::min(GIGE_MAX_BANDWIDTH_BPS, limit->GetMax()));
             limit->SetValue(clamped);
         }
+        camera_link_set_[camera_id] = true;
     }
 }
 
@@ -435,7 +436,7 @@ void SpinnakerCameraManager::CameraAcquisitionThread(Spinnaker::CameraPtr camera
 void SpinnakerCameraManager::DebayerThread(int32_t camera_id) {
     Spinnaker::ImageProcessor img_proc;
     img_proc.SetColorProcessing(
-        Spinnaker::SPINNAKER_COLOR_PROCESSING_ALGORITHM_HQ_LINEAR);
+        Spinnaker::SPINNAKER_COLOR_PROCESSING_ALGORITHM_NEAREST_NEIGHBOR);
 
     try {
     while (true) {
@@ -881,8 +882,24 @@ bool SpinnakerCameraManager::SetParameter(const std::string& param_name,
                                           node->GetMax()));
                     node->SetValue(clamped);
                     any_success = true;
+                    continue;
                 } catch (const Spinnaker::Exception& ex) {
                     std::cerr << "[SetParameter] Int set failed for '"
+                              << param_name << "' on cam " << i
+                              << ": " << ex.what() << '\n';
+                }
+            }
+        }
+
+        // ── Boolean node (AcquisitionFrameRateEnable, ReverseX, …) ───────────
+        {
+            CBooleanPtr node = nm.GetNode(param_name.c_str());
+            if (IsAvailable(node) && IsWritable(node)) {
+                try {
+                    node->SetValue(int_value != 0);
+                    any_success = true;
+                } catch (const Spinnaker::Exception& ex) {
+                    std::cerr << "[SetParameter] Bool set failed for '"
                               << param_name << "' on cam " << i
                               << ": " << ex.what() << '\n';
                 }

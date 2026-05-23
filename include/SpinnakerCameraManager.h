@@ -163,7 +163,7 @@ private:
     /// Returns false and falls back to system_clock if the node is unavailable.
     bool ComputeTimestampOffset(int32_t camera_id);
 
-    void ConfigureCamera(Spinnaker::CameraPtr& camera);
+    void ConfigureCamera(Spinnaker::CameraPtr& camera, int32_t camera_id);
     void CameraAcquisitionThread(Spinnaker::CameraPtr camera, int32_t camera_id);
     void DebayerThread(int32_t camera_id);
     void DiskSaveLoop();
@@ -207,6 +207,11 @@ private:
     // system_clock::now().
     static constexpr int64_t TS_OFFSET_UNAVAIL = INT64_MIN;
     std::atomic<int64_t> cam_ts_offset_ns_[MAX_CAMERAS]{};
+
+    // True after the first successful ConfigureCamera call for each camera.
+    // Link speed is only forced on the first start; subsequent restarts leave
+    // whatever value the user set via SetParameter.
+    bool camera_link_set_[MAX_CAMERAS]{};
 
     // ── Per-camera channel order ──────────────────────────────────────────────
     // true (default) = swap R↔B after RGB8 debayer → BGR8 in SHM.
