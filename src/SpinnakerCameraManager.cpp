@@ -438,6 +438,14 @@ void SpinnakerCameraManager::DebayerThread(int32_t camera_id) {
     img_proc.SetColorProcessing(
         Spinnaker::SPINNAKER_COLOR_PROCESSING_ALGORITHM_NEAREST_NEIGHBOR);
 
+    // Pre-allocated RGB8 destination — reused every frame to avoid the
+    // per-frame 66 MB heap alloc+free that otherwise caps debayer throughput.
+    // ResetImage() sets up (or reallocates) the internal buffer whenever
+    // dimensions change; img_proc.Convert(src, dst, fmt) writes into it
+    // without any further allocation on the steady-state path.
+    Spinnaker::ImagePtr rgb_img = Spinnaker::Image::Create();
+    int32_t rgb_w = 0, rgb_h = 0;
+
     try {
     while (true) {
         RawFrame local;
@@ -512,7 +520,7 @@ void SpinnakerCameraManager::DebayerThread(int32_t camera_id) {
 
         // ── Debayer: wrap raw bytes in a Spinnaker Image, convert to BGR8 ──────
         // Image::Create() references the provided buffer without copying.
-        // ImageProcessor::Convert() returns a new independent heap ImagePtr.
+        // img_proc.Convert(src, dst, fmt) writes into the pre-allocated rgb_img.
         // Neither call requires an active camera stream.
         Spinnaker::ImagePtr raw_img = Spinnaker::Image::Create(
             static_cast<size_t>(local.width),
@@ -521,16 +529,30 @@ void SpinnakerCameraManager::DebayerThread(int32_t camera_id) {
             local.pixel_format,
             local.data.data());
 
+        // Prepare destination buffer — reallocate only on resolution change.
+        if (local.width != rgb_w || local.height != rgb_h) {
+            rgb_img->ResetImage(static_cast<size_t>(local.width),
+                                static_cast<size_t>(local.height),
+                                0, 0, Spinnaker::PixelFormat_RGB8);
+            rgb_w = local.width;
+            rgb_h = local.height;
+        }
+
+        // Convert to RGB8 — no heap allocation on steady-state frames.
+        // Then swap R↔B bytes to produce BGR8; using PixelFormat_BGR8 directly
+        // can silently produce RGB-ordered output for some Bayer patterns on
+        // certain SDK versions, so we guarantee byte order with the explicit swap.
+        img_proc.Convert(raw_img, rgb_img, Spinnaker::PixelFormat_RGB8);
+
         // Log image geometry once per camera — confirms stride/padding situation.
         {
             static bool logged[MAX_CAMERAS] = {};
             if (!logged[camera_id]) {
                 logged[camera_id] = true;
-                Spinnaker::ImagePtr probe = img_proc.Convert(raw_img, Spinnaker::PixelFormat_RGB8);
-                const std::size_t pw = probe->GetWidth();
-                const std::size_t ph = probe->GetHeight();
-                const std::size_t ps = probe->GetStride();
-                const std::size_t pi = probe->GetImageSize();
+                const std::size_t pw = rgb_img->GetWidth();
+                const std::size_t ph = rgb_img->GetHeight();
+                const std::size_t ps = rgb_img->GetStride();
+                const std::size_t pi = rgb_img->GetImageSize();
                 std::cout << "[Debayer cam" << camera_id << "] raw pixel format = "
                           << raw_img->GetPixelFormatName()
                           << " (" << static_cast<int>(local.pixel_format) << ")\n"
@@ -542,14 +564,6 @@ void SpinnakerCameraManager::DebayerThread(int32_t camera_id) {
                           << (ps == pw * 3 ? "  [TIGHT]" : "  [PADDED]") << "\n";
             }
         }
-
-        // Convert to RGB8 first — universally supported regardless of Bayer
-        // pattern.  Then swap R and B bytes to produce the BGR8 layout that
-        // consumers expect.  Using PixelFormat_BGR8 directly can silently
-        // produce RGB-ordered output for some Bayer patterns on certain SDK
-        // versions; the explicit swap below guarantees the correct byte order
-        // for every camera model.
-        Spinnaker::ImagePtr rgb_img = img_proc.Convert(raw_img, Spinnaker::PixelFormat_RGB8);
 
         // Optional R↔B swap: byte 0 (R) ↔ byte 2 (B) for every pixel.
         // Controlled per-camera via SetParameter("ChannelOrder", 0, 0, cam, "BGR"/"RGB").
