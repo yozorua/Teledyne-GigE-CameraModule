@@ -386,9 +386,74 @@ bool SpinnakerCameraManager::ReinitializeCameras() {
         const unsigned int count = cam_list_.GetSize();
         std::cout << "[CameraManager] ReinitializeCameras: found " << count << " camera(s).\n";
 
+        // Pass 1: fix wrong-subnet cameras via the TL Device nodemap.
+        // GevDeviceAutoForceIP and GevDeviceIsWrongSubnet are both pre-Init()
+        // transport-layer nodes — they do not require Init() to be called first.
+        // CameraBase::ForceIP() looks equivalent but internally requires Init(),
+        // so we go through the nodemap directly.
+        bool any_forced = false;
         for (unsigned int i = 0; i < count && i < static_cast<unsigned int>(MAX_CAMERAS); ++i) {
-            cameras_.push_back(cam_list_.GetByIndex(i));
-            cameras_.back()->Init();
+            try {
+                using namespace Spinnaker::GenApi;
+                INodeMap&   tlMap          = cam_list_.GetByIndex(i)->GetTLDeviceNodeMap();
+                CBooleanPtr ptrWrongSubnet = tlMap.GetNode("GevDeviceIsWrongSubnet");
+                if (!IsAvailable(ptrWrongSubnet) || !ptrWrongSubnet->GetValue()) continue;
+
+                std::cout << "[CameraManager] Camera " << i
+                          << " is on wrong subnet — applying auto ForceIP.\n";
+                CCommandPtr ptrAutoForce = tlMap.GetNode("GevDeviceAutoForceIP");
+                if (IsAvailable(ptrAutoForce) && IsWritable(ptrAutoForce)) {
+                    ptrAutoForce->Execute();
+                    any_forced = true;
+                } else {
+                    std::cerr << "[CameraManager] Camera " << i
+                              << " GevDeviceAutoForceIP not available.\n";
+                }
+            } catch (const Spinnaker::Exception& ex) {
+                std::cerr << "[CameraManager] Camera " << i
+                          << " ForceIP failed: " << ex.what() << '\n';
+            }
+        }
+
+        // If any camera was forced, re-enumerate so CameraPtr handles reflect
+        // the new address.  A short delay lets the camera's IP stack settle
+        // before the discovery broadcast goes out.
+        if (any_forced) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            cam_list_.Clear();
+            cam_list_ = system_->GetCameras();
+            std::cout << "[CameraManager] After ForceIP: found "
+                      << cam_list_.GetSize() << " camera(s).\n";
+        }
+
+        // Pass 2: Init() each camera.  When ForceIP was applied the camera may
+        // still be finishing its IP reconfiguration, so retry up to 10 times
+        // (one attempt per second) rather than failing immediately.
+        const int max_attempts = any_forced ? 10 : 1;
+        for (unsigned int i = 0; i < cam_list_.GetSize() && i < static_cast<unsigned int>(MAX_CAMERAS); ++i) {
+            Spinnaker::CameraPtr cam = cam_list_.GetByIndex(i);
+            bool inited = false;
+            for (int attempt = 0; attempt < max_attempts; ++attempt) {
+                try {
+                    cam->Init();
+                    cameras_.push_back(cam);
+                    inited = true;
+                    break;
+                } catch (const Spinnaker::Exception& ex) {
+                    if (attempt + 1 < max_attempts) {
+                        std::cout << "[CameraManager] Camera " << i
+                                  << " not ready yet, retrying in 1 s... ("
+                                  << (attempt + 1) << "/" << max_attempts << ")\n";
+                        std::this_thread::sleep_for(std::chrono::seconds(1));
+                    } else {
+                        std::cerr << "[CameraManager] Camera " << i
+                                  << " Init() failed after " << max_attempts
+                                  << " attempts: " << ex.what() << " — skipped.\n";
+                    }
+                }
+            }
+            if (!inited)
+                std::cerr << "[CameraManager] Camera " << i << " could not be initialized.\n";
         }
     } catch (const Spinnaker::Exception& ex) {
         std::cerr << "[CameraManager] ReinitializeCameras: enumeration error: "
