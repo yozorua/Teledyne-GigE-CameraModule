@@ -385,6 +385,7 @@ See `proto/camera_service.proto`.  Package name: `camaramodule`.
 | `ResyncTimestamp` | `CameraRequest` | `CommandStatus` | Re-calibrate camera hardware clock → wall-clock offset for one or all cameras |
 | `FactoryReset` | `CameraRequest` | `CommandStatus` | Reset all user settings to factory defaults; stops acquisition first — camera reboots after the command |
 | `ForceIP` | `ForceIPRequest` | `CommandStatus` | Force the camera's IP configuration (auto same-subnet or manual IP/mask/gateway) |
+| `ReinitializeCameras` | `Empty` | `CommandStatus` | Stop acquisition, release stale camera handles, re-enumerate, and re-initialize all cameras — use after any camera reboot |
 | `GetLatestImageFrame` | `FrameRequest` | `FrameInfo` | Pin the latest buffer for a camera; returns SHM index + metadata (`timestamp` = µs since epoch at capture time) |
 | `ReleaseImageFrame` | `ReleaseRequest` | `CommandStatus` | Decrement refcount on a pinned buffer |
 
@@ -652,22 +653,27 @@ The `shm` and `inspect` commands open shared memory read-only (`OpenFileMapping`
 
 | Command | Action |
 |---|---|
+| `reinit` | `ReinitializeCameras` — re-enumerate and re-initialize all cameras; use after any camera reboot |
 | `factoryreset <cam_id>` | `FactoryReset` — resets all user settings to factory defaults; camera reboots |
 | `forceip <cam_id>` | `ForceIP` (auto mode) — moves camera to the same subnet as its interface |
 | `forceip <cam_id> <ip> <mask> [<gw>]` | `ForceIP` (manual) — assigns specific IP/mask/gateway in dotted-decimal |
 
 ```
+# Typical workflow after a factory reset:
+camera> factoryreset 0        # camera reboots (~5–15 s)
+  ...wait for camera to come back online...
+camera> reinit                # re-enumerate and re-init all cameras
+camera> cameras               # confirm camera is visible again
+camera> start                 # resume acquisition
+
 # Auto Force IP — correct a wrong-subnet camera automatically
-forceip 0
+camera> forceip 0
 
 # Manual Force IP — assign a fixed address
-forceip 0 192.168.1.100 255.255.255.0 192.168.1.1
-
-# Factory reset — USE WITH CAUTION, camera will reboot
-factoryreset 0
+camera> forceip 0 192.168.1.100 255.255.255.0 192.168.1.1
 ```
 
-> After `factoryreset` the camera reboots. The gRPC module will lose the connection and must be restarted (or the acquisition restarted via `start`) once the camera comes back online.
+> `reinit` does not restart the gRPC server or the disk-save thread — only camera handles are refreshed. Runtime settings such as `ChannelOrder` and `DebayerMode` are preserved; hardware settings (exposure, gain, etc.) will reflect the camera's current state (factory defaults after a reset).
 
 ---
 

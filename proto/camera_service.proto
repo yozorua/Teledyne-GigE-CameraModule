@@ -25,6 +25,7 @@ service CameraControl {
   // ── Camera maintenance ────────────────────────────────────────────────────
   rpc FactoryReset        (CameraRequest)        returns (CommandStatus);
   rpc ForceIP             (ForceIPRequest)       returns (CommandStatus);
+  rpc ReinitializeCameras (Empty)                returns (CommandStatus);
 
   // ── Inter-process buffer management ──────────────────────────────────────
   rpc GetLatestImageFrame (FrameRequest)         returns (FrameInfo);

@@ -164,6 +164,12 @@ public:
     bool ForceIP(int32_t camera_id, bool auto_mode,
                  uint32_t ip = 0, uint32_t mask = 0, uint32_t gateway = 0);
 
+    /// Stops all acquisition, releases stale camera handles, re-enumerates cameras
+    /// from the existing Spinnaker system instance, and re-initializes each one.
+    /// Use after FactoryReset or any event that reboots a camera.
+    /// The disk-save thread is not affected.
+    bool ReinitializeCameras();
+
 private:
     // ── Per-camera helpers ────────────────────────────────────────────────────
     bool StartCamera(int32_t camera_id);

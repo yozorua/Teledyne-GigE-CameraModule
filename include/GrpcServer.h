@@ -58,6 +58,10 @@ public:
                          const camaramodule::ForceIPRequest*  req,
                          camaramodule::CommandStatus*         resp) override;
 
+    grpc::Status ReinitializeCameras(grpc::ServerContext*       ctx,
+                                     const camaramodule::Empty* req,
+                                     camaramodule::CommandStatus* resp) override;
+
     grpc::Status GetLatestImageFrame(grpc::ServerContext*              ctx,
                                      const camaramodule::FrameRequest* req,
                                      camaramodule::FrameInfo*          resp) override;

@@ -345,6 +345,15 @@ public:
         PrintStatus(resp);
     }
 
+    void ReinitializeCameras() {
+        camaramodule::Empty         req;
+        camaramodule::CommandStatus resp;
+        grpc::ClientContext         ctx;
+        auto st = stub_->ReinitializeCameras(&ctx, req, &resp);
+        if (!st.ok()) { PrintRpcError(st); return; }
+        PrintStatus(resp);
+    }
+
     void DoFactoryReset(int32_t camera_id) {
         camaramodule::CameraRequest  req;
         camaramodule::CommandStatus  resp;
@@ -461,6 +470,7 @@ SHM diagnostics:
   inspect <index>               Pixel stats on a buffer (no gRPC needed)
 
 Camera maintenance:
+  reinit                        Re-enumerate and re-initialize all cameras (use after reboot/factoryreset)
   factoryreset <cam_id>         Reset all settings to factory defaults (camera reboots)
   forceip <cam_id>              Auto Force IP — move camera to same subnet as interface
   forceip <cam_id> <ip> <mask> [<gw>]
@@ -604,6 +614,11 @@ int main(int argc, char* argv[]) {
                 continue;
             }
             InspectBuffer(idx);
+            continue;
+        }
+
+        if (cmd == "reinit") {
+            client.ReinitializeCameras();
             continue;
         }
 

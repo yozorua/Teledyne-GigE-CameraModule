@@ -203,6 +203,19 @@ grpc::Status CameraControlServiceImpl::ForceIP(
     return grpc::Status::OK;
 }
 
+grpc::Status CameraControlServiceImpl::ReinitializeCameras(
+    grpc::ServerContext*,
+    const camaramodule::Empty*,
+    camaramodule::CommandStatus* resp)
+{
+    const bool ok = cam_mgr_.ReinitializeCameras();
+    resp->set_success(ok);
+    resp->set_message(ok
+        ? "Cameras reinitialized successfully."
+        : "Reinitialization failed — no cameras found after re-enumeration.");
+    return grpc::Status::OK;
+}
+
 grpc::Status CameraControlServiceImpl::GetLatestImageFrame(
     grpc::ServerContext*,
     const camaramodule::FrameRequest* req,

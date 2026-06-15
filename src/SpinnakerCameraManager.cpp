@@ -355,6 +355,53 @@ bool SpinnakerCameraManager::ForceIP(int32_t camera_id, bool auto_mode,
     }
 }
 
+bool SpinnakerCameraManager::ReinitializeCameras() {
+    std::cout << "[CameraManager] ReinitializeCameras: stopping acquisition...\n";
+    StopAcquisition(-1);
+
+    // Release stale camera handles without touching the system_ instance or
+    // the disk-save thread (both stay alive across reinit).
+    try {
+        for (auto& cam : cameras_) {
+            if (cam->IsInitialized()) cam->DeInit();
+        }
+        cameras_.clear();
+        cam_list_.Clear();
+    } catch (const Spinnaker::Exception& ex) {
+        std::cerr << "[CameraManager] ReinitializeCameras: cleanup warning: "
+                  << ex.what() << '\n';
+        // Non-fatal — stale handles are cleared, continue to re-enumerate.
+        cameras_.clear();
+    }
+
+    // Reset per-camera state that is invalid for new handles.
+    for (int i = 0; i < MAX_CAMERAS; ++i) {
+        cam_ts_offset_ns_[i].store(TS_OFFSET_UNAVAIL, std::memory_order_relaxed);
+        camera_link_set_[i] = false;
+    }
+
+    // Re-enumerate from the existing system instance (no ReleaseInstance needed).
+    try {
+        cam_list_ = system_->GetCameras();
+        const unsigned int count = cam_list_.GetSize();
+        std::cout << "[CameraManager] ReinitializeCameras: found " << count << " camera(s).\n";
+
+        for (unsigned int i = 0; i < count && i < static_cast<unsigned int>(MAX_CAMERAS); ++i) {
+            cameras_.push_back(cam_list_.GetByIndex(i));
+            cameras_.back()->Init();
+        }
+    } catch (const Spinnaker::Exception& ex) {
+        std::cerr << "[CameraManager] ReinitializeCameras: enumeration error: "
+                  << ex.what() << '\n';
+        return false;
+    }
+
+    shm_.SetNumCameras(static_cast<int32_t>(cameras_.size()));
+    std::cout << "[CameraManager] ReinitializeCameras: "
+              << cameras_.size() << " camera(s) ready.\n";
+    return !cameras_.empty();
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Camera configuration
 // ─────────────────────────────────────────────────────────────────────────────
