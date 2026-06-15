@@ -22,6 +22,10 @@ service CameraControl {
   // ── Timestamp calibration ────────────────────────────────────────────────
   rpc ResyncTimestamp     (CameraRequest)        returns (CommandStatus);
 
+  // ── Camera maintenance ────────────────────────────────────────────────────
+  rpc FactoryReset        (CameraRequest)        returns (CommandStatus);
+  rpc ForceIP             (ForceIPRequest)       returns (CommandStatus);
+
   // ── Inter-process buffer management ──────────────────────────────────────
   rpc GetLatestImageFrame (FrameRequest)         returns (FrameInfo);
   rpc ReleaseImageFrame   (ReleaseRequest)       returns (CommandStatus);
@@ -94,6 +98,14 @@ message FrameInfo {
 
 message ReleaseRequest {
   int32 shared_memory_index = 1;
+}
+
+message ForceIPRequest {
+  int32  camera_id   = 1;
+  bool   auto_mode   = 2;  // true = auto same-subnet; false = apply fields below
+  uint32 ip_address  = 3;  // packed big-endian 32-bit (only used when auto_mode=false)
+  uint32 subnet_mask = 4;
+  uint32 gateway     = 5;
 }
 
 message CommandStatus {

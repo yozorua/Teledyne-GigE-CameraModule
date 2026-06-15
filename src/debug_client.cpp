@@ -28,6 +28,14 @@
 
 static constexpr const char* DEFAULT_ADDR = "localhost:50051";
 
+// Parses "192.168.1.100" → 0xC0A80164.  Returns 0 on parse failure.
+static uint32_t ParseDottedDecimal(const std::string& s) {
+    unsigned int a = 0, b = 0, c = 0, d = 0;
+    if (std::sscanf(s.c_str(), "%u.%u.%u.%u", &a, &b, &c, &d) != 4) return 0;
+    if (a > 255 || b > 255 || c > 255 || d > 255) return 0;
+    return (a << 24) | (b << 16) | (c << 8) | d;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared memory reader (consumer side, read-only, no SeCreateGlobalPrivilege)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -337,6 +345,31 @@ public:
         PrintStatus(resp);
     }
 
+    void DoFactoryReset(int32_t camera_id) {
+        camaramodule::CameraRequest  req;
+        camaramodule::CommandStatus  resp;
+        grpc::ClientContext          ctx;
+        req.set_camera_id(camera_id);
+        auto st = stub_->FactoryReset(&ctx, req, &resp);
+        if (!st.ok()) { PrintRpcError(st); return; }
+        PrintStatus(resp);
+    }
+
+    void DoForceIP(int32_t camera_id, bool auto_mode,
+                   uint32_t ip = 0, uint32_t mask = 0, uint32_t gateway = 0) {
+        camaramodule::ForceIPRequest req;
+        camaramodule::CommandStatus  resp;
+        grpc::ClientContext          ctx;
+        req.set_camera_id(camera_id);
+        req.set_auto_mode(auto_mode);
+        req.set_ip_address(ip);
+        req.set_subnet_mask(mask);
+        req.set_gateway(gateway);
+        auto st = stub_->ForceIP(&ctx, req, &resp);
+        if (!st.ok()) { PrintRpcError(st); return; }
+        PrintStatus(resp);
+    }
+
 private:
     static void PrintStatus(const camaramodule::CommandStatus& s) {
         std::cout << "  " << (s.success() ? "OK" : "FAIL")
@@ -426,6 +459,12 @@ Frame inspection:
 SHM diagnostics:
   shm                           Dump full SHM pool state
   inspect <index>               Pixel stats on a buffer (no gRPC needed)
+
+Camera maintenance:
+  factoryreset <cam_id>         Reset all settings to factory defaults (camera reboots)
+  forceip <cam_id>              Auto Force IP — move camera to same subnet as interface
+  forceip <cam_id> <ip> <mask> [<gw>]
+                                Manual Force IP with dotted-decimal IP/mask/gateway
 
   help                          Show this help
   quit / exit                   Exit
@@ -565,6 +604,47 @@ int main(int argc, char* argv[]) {
                 continue;
             }
             InspectBuffer(idx);
+            continue;
+        }
+
+        if (cmd == "factoryreset") {
+            int32_t cam_id = -1;
+            if (!(ss >> cam_id)) {
+                std::cerr << "  Usage: factoryreset <cam_id>\n";
+                continue;
+            }
+            client.DoFactoryReset(cam_id);
+            continue;
+        }
+
+        if (cmd == "forceip") {
+            int32_t cam_id = -1;
+            if (!(ss >> cam_id)) {
+                std::cerr << "  Usage: forceip <cam_id> [<ip> <mask> [<gw>]]\n";
+                continue;
+            }
+            std::string ip_str;
+            if (!(ss >> ip_str)) {
+                // No IP supplied — auto mode.
+                client.DoForceIP(cam_id, true);
+            } else {
+                std::string mask_str, gw_str;
+                if (!(ss >> mask_str)) {
+                    std::cerr << "  Usage: forceip <cam_id> <ip> <mask> [<gw>]\n";
+                    continue;
+                }
+                ss >> gw_str;  // optional
+
+                const uint32_t ip   = ParseDottedDecimal(ip_str);
+                const uint32_t mask = ParseDottedDecimal(mask_str);
+                const uint32_t gw   = gw_str.empty() ? 0 : ParseDottedDecimal(gw_str);
+
+                if (ip == 0 || mask == 0) {
+                    std::cerr << "  Invalid IP or mask — use dotted-decimal (e.g. 192.168.1.100)\n";
+                    continue;
+                }
+                client.DoForceIP(cam_id, false, ip, mask, gw);
+            }
             continue;
         }
 

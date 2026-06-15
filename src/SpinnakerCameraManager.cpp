@@ -274,6 +274,87 @@ bool SpinnakerCameraManager::ResyncTimestamp(int32_t camera_id) {
     return ComputeTimestampOffset(camera_id);
 }
 
+bool SpinnakerCameraManager::FactoryReset(int32_t camera_id) {
+    if (camera_id < 0 || camera_id >= static_cast<int32_t>(cameras_.size())) {
+        std::cerr << "[CameraManager] FactoryReset: invalid camera_id " << camera_id << '\n';
+        return false;
+    }
+
+    // The camera reboots after the command — stop acquisition cleanly first.
+    if (camera_acquiring_[camera_id].load(std::memory_order_acquire))
+        StopCamera(camera_id);
+
+    try {
+        using namespace Spinnaker::GenApi;
+        INodeMap& nm        = cameras_[camera_id]->GetNodeMap();
+        CCommandPtr ptrReset = nm.GetNode("FactoryReset");
+        if (!IsAvailable(ptrReset) || !IsWritable(ptrReset)) {
+            std::cerr << "[CameraManager] FactoryReset node not available on camera "
+                      << camera_id << ".\n";
+            return false;
+        }
+        ptrReset->Execute();
+        std::cout << "[CameraManager] FactoryReset executed on camera " << camera_id
+                  << " — camera will reboot.\n";
+        return true;
+    } catch (const Spinnaker::Exception& ex) {
+        std::cerr << "[CameraManager] FactoryReset error on camera " << camera_id
+                  << ": " << ex.what() << '\n';
+        return false;
+    }
+}
+
+bool SpinnakerCameraManager::ForceIP(int32_t camera_id, bool auto_mode,
+                                      uint32_t ip, uint32_t mask, uint32_t gateway) {
+    if (camera_id < 0 || camera_id >= static_cast<int32_t>(cameras_.size())) {
+        std::cerr << "[CameraManager] ForceIP: invalid camera_id " << camera_id << '\n';
+        return false;
+    }
+
+    try {
+        if (auto_mode) {
+            cameras_[camera_id]->ForceIP();
+            std::cout << "[CameraManager] Auto ForceIP on camera " << camera_id
+                      << " — forced to same subnet as interface.\n";
+            return true;
+        }
+
+        using namespace Spinnaker::GenApi;
+        INodeMap&   tlMap   = cameras_[camera_id]->GetTLDeviceNodeMap();
+        CIntegerPtr ptrAddr = tlMap.GetNode("GevDeviceForceIPAddress");
+        CIntegerPtr ptrMask = tlMap.GetNode("GevDeviceForceSubnetMask");
+        CIntegerPtr ptrGw   = tlMap.GetNode("GevDeviceForceGateway");
+        CCommandPtr ptrCmd  = tlMap.GetNode("GevDeviceForceIP");
+
+        if (!IsAvailable(ptrAddr) || !IsWritable(ptrAddr) ||
+            !IsAvailable(ptrMask) || !IsWritable(ptrMask) ||
+            !IsAvailable(ptrCmd)  || !IsWritable(ptrCmd)) {
+            std::cerr << "[CameraManager] ForceIP TL nodes not available on camera "
+                      << camera_id << ".\n";
+            return false;
+        }
+
+        ptrAddr->SetValue(static_cast<int64_t>(ip));
+        ptrMask->SetValue(static_cast<int64_t>(mask));
+        if (gateway != 0 && IsAvailable(ptrGw) && IsWritable(ptrGw))
+            ptrGw->SetValue(static_cast<int64_t>(gateway));
+
+        ptrCmd->Execute();
+
+        auto octet = [](uint32_t v, int shift) { return (v >> shift) & 0xFF; };
+        std::cout << "[CameraManager] Manual ForceIP on camera " << camera_id
+                  << "  ip="   << octet(ip,24)   << '.' << octet(ip,16)   << '.' << octet(ip,8)   << '.' << octet(ip,0)
+                  << "  mask=" << octet(mask,24) << '.' << octet(mask,16) << '.' << octet(mask,8) << '.' << octet(mask,0)
+                  << '\n';
+        return true;
+
+    } catch (const Spinnaker::Exception& ex) {
+        std::cerr << "[CameraManager] ForceIP error on camera " << camera_id
+                  << ": " << ex.what() << '\n';
+        return false;
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Camera configuration
 // ─────────────────────────────────────────────────────────────────────────────

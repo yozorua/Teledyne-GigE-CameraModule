@@ -383,6 +383,8 @@ See `proto/camera_service.proto`.  Package name: `camaramodule`.
 | `SetSaveDirectory` | `SaveDirectoryRequest` | `CommandStatus` | Change the directory frames are saved to at runtime |
 | `GetCameraInfo` | `CameraRequest` | `CameraState` | Full live state for one camera (model, IP, ROI, binning, exposure, gain, FPS) |
 | `ResyncTimestamp` | `CameraRequest` | `CommandStatus` | Re-calibrate camera hardware clock → wall-clock offset for one or all cameras |
+| `FactoryReset` | `CameraRequest` | `CommandStatus` | Reset all user settings to factory defaults; stops acquisition first — camera reboots after the command |
+| `ForceIP` | `ForceIPRequest` | `CommandStatus` | Force the camera's IP configuration (auto same-subnet or manual IP/mask/gateway) |
 | `GetLatestImageFrame` | `FrameRequest` | `FrameInfo` | Pin the latest buffer for a camera; returns SHM index + metadata (`timestamp` = µs since epoch at capture time) |
 | `ReleaseImageFrame` | `ReleaseRequest` | `CommandStatus` | Decrement refcount on a pinned buffer |
 
@@ -400,6 +402,18 @@ See `proto/camera_service.proto`.  Package name: `camaramodule`.
 `GetLatestImageFrame` uses the same convention — pass `-1` to get the most recent frame from any camera.
 
 > **Important:** consumers must call `ReleaseImageFrame` after every successful `GetLatestImageFrame` or the pool will exhaust.
+
+### `ForceIPRequest` fields
+
+| Field | Type | Description |
+|---|---|---|
+| `camera_id` | int32 | 0-based camera index (required) |
+| `auto_mode` | bool | `true` — auto same-subnet via `CameraBase::ForceIP()`; `false` — apply the fields below |
+| `ip_address` | uint32 | Target IP packed big-endian (e.g. `0xC0A80164` = `192.168.1.100`); only used when `auto_mode=false` |
+| `subnet_mask` | uint32 | Target subnet mask packed big-endian (e.g. `0xFFFFFF00` = `255.255.255.0`) |
+| `gateway` | uint32 | Target gateway packed big-endian; `0` leaves the gateway unchanged |
+
+`auto_mode=true` broadcasts a GVCP ForceIP using the camera's MAC address — no `Init()` is required and it works even when the camera is on the wrong subnet (as long as it was enumerated).  `auto_mode=false` sets a specific address via the TL Device nodemap and also does not require `Init()`.
 
 ### `CameraState` fields
 
@@ -633,6 +647,27 @@ Saved files are named `frame_cam<N>_<timestamp_ms>.jpg` (JPEG, BGR8) or `frame_c
 | `inspect <idx>` | Pixel stats for buffer N (min/max/mean + 5×5 sample grid) — direct SHM read, no gRPC |
 
 The `shm` and `inspect` commands open shared memory read-only (`OpenFileMapping`) — no Administrator rights required on the consumer side.
+
+**Camera maintenance**
+
+| Command | Action |
+|---|---|
+| `factoryreset <cam_id>` | `FactoryReset` — resets all user settings to factory defaults; camera reboots |
+| `forceip <cam_id>` | `ForceIP` (auto mode) — moves camera to the same subnet as its interface |
+| `forceip <cam_id> <ip> <mask> [<gw>]` | `ForceIP` (manual) — assigns specific IP/mask/gateway in dotted-decimal |
+
+```
+# Auto Force IP — correct a wrong-subnet camera automatically
+forceip 0
+
+# Manual Force IP — assign a fixed address
+forceip 0 192.168.1.100 255.255.255.0 192.168.1.1
+
+# Factory reset — USE WITH CAUTION, camera will reboot
+factoryreset 0
+```
+
+> After `factoryreset` the camera reboots. The gRPC module will lose the connection and must be restarted (or the acquisition restarted via `start`) once the camera comes back online.
 
 ---
 

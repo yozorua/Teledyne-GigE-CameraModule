@@ -153,6 +153,17 @@ public:
     /// Call this to correct drift after long uptime or a camera reconnect.
     bool ResyncTimestamp(int32_t camera_id = -1);
 
+    /// Resets all user-saved settings on the camera to factory defaults.
+    /// Stops acquisition first; the camera reboots after the command completes.
+    bool FactoryReset(int32_t camera_id);
+
+    /// Forces the camera's IP configuration.
+    /// auto_mode=true  → CameraBase::ForceIP() (same subnet as interface, no Init() needed).
+    /// auto_mode=false → writes GevDeviceForceIPAddress/SubnetMask/Gateway via TL nodemap,
+    ///                   then executes GevDeviceForceIP (gateway=0 leaves it unchanged).
+    bool ForceIP(int32_t camera_id, bool auto_mode,
+                 uint32_t ip = 0, uint32_t mask = 0, uint32_t gateway = 0);
+
 private:
     // ── Per-camera helpers ────────────────────────────────────────────────────
     bool StartCamera(int32_t camera_id);

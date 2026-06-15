@@ -165,6 +165,44 @@ grpc::Status CameraControlServiceImpl::ResyncTimestamp(
     return grpc::Status::OK;
 }
 
+grpc::Status CameraControlServiceImpl::FactoryReset(
+    grpc::ServerContext*,
+    const camaramodule::CameraRequest* req,
+    camaramodule::CommandStatus*       resp)
+{
+    const int32_t camera_id = req->camera_id();
+    const bool ok = cam_mgr_.FactoryReset(camera_id);
+    resp->set_success(ok);
+    resp->set_message(ok
+        ? "Factory reset executed on camera " + std::to_string(camera_id) +
+          ". Camera will reboot — reconnect required before next use."
+        : "Factory reset failed on camera " + std::to_string(camera_id) +
+          ". Node unavailable or camera not found.");
+    return grpc::Status::OK;
+}
+
+grpc::Status CameraControlServiceImpl::ForceIP(
+    grpc::ServerContext*,
+    const camaramodule::ForceIPRequest* req,
+    camaramodule::CommandStatus*        resp)
+{
+    const bool ok = cam_mgr_.ForceIP(
+        req->camera_id(),
+        req->auto_mode(),
+        req->ip_address(),
+        req->subnet_mask(),
+        req->gateway());
+    resp->set_success(ok);
+    if (ok) {
+        resp->set_message(req->auto_mode()
+            ? "Auto ForceIP applied — camera moved to interface subnet."
+            : "Manual ForceIP applied.");
+    } else {
+        resp->set_message("ForceIP failed — camera not found or TL nodes unavailable.");
+    }
+    return grpc::Status::OK;
+}
+
 grpc::Status CameraControlServiceImpl::GetLatestImageFrame(
     grpc::ServerContext*,
     const camaramodule::FrameRequest* req,
