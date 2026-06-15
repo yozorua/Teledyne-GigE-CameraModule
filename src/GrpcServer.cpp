@@ -147,6 +147,7 @@ grpc::Status CameraControlServiceImpl::GetCameraInfo(
     resp->set_gain_auto(info.gain_auto);
     resp->set_ev_compensation(info.ev_compensation);
     resp->set_link_speed_bps(info.link_speed_bps);
+    resp->set_pixel_color_filter(info.pixel_color_filter);
     return grpc::Status::OK;
 }
 

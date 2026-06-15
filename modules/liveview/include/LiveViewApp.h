@@ -32,7 +32,7 @@ struct ParamEditState {
     int   binning_v{1};
     int   link_speed_mbps{600};   // UI in MB/s; sent as bytes/s (× 1 000 000)
 
-    bool        debayer_enabled{true};  // false → raw Bayer (1ch, faster); true → BGR8
+    bool        debayer_enabled{true};  // true → GPU shader debayers in LiveView; false → grayscale
     std::string apply_status;     // feedback shown after Apply
     bool        loaded{false};    // false → re-init from panel.info on next render
 };
@@ -56,6 +56,14 @@ struct CameraPanel {
     int                         tex_back_ch{0};
     bool                        tex_back_ready{false}; // DMA queued to tex_back; swap at next frame start
     void*                       dma_fence{nullptr};    // GLsync — signals when tex_back DMA completes
+
+    // GPU debayer: raw Bayer (tex_front) → GLSL shader → debayer_tex → ImGui::Image
+    uint32_t                    debayer_tex{0};    // GL_RGB8 output of debayer pass
+    uint32_t                    fbo{0};            // FBO for debayer pass
+    int                         debayer_tex_w{0};  // allocated dimensions of debayer_tex
+    int                         debayer_tex_h{0};
+    int                         bayer_r_col{0};    // R-pixel col offset in 2×2 cell (from PixelColorFilter)
+    int                         bayer_r_row{0};    // R-pixel row offset
 
     uint32_t                    pbo[2]{0, 0};   // double-buffered PBOs — pre-allocated, never orphaned
     int                         pbo_idx{0};     // which PBO the CPU writes this frame
@@ -103,6 +111,10 @@ private:
                        const uint8_t* data,
                        int w, int h, int channels);
 
+    // ── GPU debayer ───────────────────────────────────────────────────────────
+    void InitDebayerShader();
+    void RunDebayerPass(CameraPanel& panel);
+
     // ── State ─────────────────────────────────────────────────────────────────
     AppState    state_{AppState::Connect};
     char        addr_buf_[256]{"localhost:50051"};
@@ -115,6 +127,14 @@ private:
 
     int  selected_cam_idx_{0};
     bool sidebar_open_{true};
+
+    // Debayer shader (compiled once at first Connect; destroyed at Disconnect)
+    uint32_t debayer_prog_{0};
+    uint32_t quad_vao_{0};
+    uint32_t quad_vbo_{0};
+    int      u_bayer_loc_{-1};
+    int      u_r_col_loc_{-1};
+    int      u_r_row_loc_{-1};
 
     float info_refresh_timer_{0.f};
     static constexpr float kInfoRefreshSecs = 2.f;

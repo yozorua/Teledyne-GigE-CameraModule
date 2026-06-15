@@ -1018,6 +1018,8 @@ bool SpinnakerCameraManager::GetCameraInfo(int32_t camera_id, CameraInfo& info) 
             info.link_speed_bps = static_cast<int64_t>(p->GetValue());
     }
 
+    info.pixel_color_filter = readEnum("PixelColorFilter");
+
     return true;
 }
 

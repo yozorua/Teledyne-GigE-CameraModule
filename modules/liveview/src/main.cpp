@@ -15,6 +15,11 @@
 #include <GL/glew.h>        // GLEW must be included before any other GL header
 #include <GLFW/glfw3.h>
 
+// Force discrete GPU on hybrid laptops (NVIDIA Optimus / AMD PowerXpress).
+// The GPU driver reads these exported symbols before the process starts.
+extern "C" { __declspec(dllexport) unsigned long NvOptimusEnablement                = 1; }
+extern "C" { __declspec(dllexport) int           AmdPowerXpressRequestHighPerformance = 1; }
+
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"

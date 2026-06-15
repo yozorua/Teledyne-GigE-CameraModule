@@ -203,8 +203,9 @@ struct GigeCameraInfo {
     float       ev_compensation{0.f};  ///< AutoExposureEVCompensation; 0 if unavailable
     int64_t     link_speed_bps{0};    ///< DeviceLinkThroughputLimit in bytes/s; 0 if unavailable
     bool        acquiring{false};
-    std::string exposure_auto;  ///< "Off" | "Once" | "Continuous"
-    std::string gain_auto;      ///< "Off" | "Once" | "Continuous"
+    std::string exposure_auto;        ///< "Off" | "Once" | "Continuous"
+    std::string gain_auto;            ///< "Off" | "Once" | "Continuous"
+    std::string pixel_color_filter;   ///< "BayerRG"|"BayerBG"|"BayerGR"|"BayerGB"|""
 };
 
 /// Module-level health snapshot.
@@ -302,9 +303,10 @@ public:
         out.fps            = resp.fps();
         out.ev_compensation = resp.ev_compensation();
         out.link_speed_bps = resp.link_speed_bps();
-        out.acquiring      = resp.acquiring();
-        out.exposure_auto  = resp.exposure_auto();
-        out.gain_auto      = resp.gain_auto();
+        out.acquiring           = resp.acquiring();
+        out.exposure_auto       = resp.exposure_auto();
+        out.gain_auto           = resp.gain_auto();
+        out.pixel_color_filter  = resp.pixel_color_filter();
         return out;
     }
 

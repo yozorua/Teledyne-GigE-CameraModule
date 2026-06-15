@@ -69,6 +69,7 @@ struct CameraInfo {
     std::string gain_auto;             // "Off" | "Once" | "Continuous"
     float       ev_compensation{0.0f}; // AutoExposureEVCompensation; 0 if node unavailable
     int64_t     link_speed_bps{0};     // DeviceLinkThroughputLimit in bytes/s; 0 if unavailable
+    std::string pixel_color_filter;    // "BayerRG"|"BayerBG"|"BayerGR"|"BayerGB"|"" (PixelColorFilter)
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

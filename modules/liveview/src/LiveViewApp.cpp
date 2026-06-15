@@ -12,6 +12,15 @@
 // Module-level helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Map PixelColorFilter string to the (col, row) position of R in the 2×2 Bayer cell.
+// Default RGGB ("BayerRG" or "") → R at (0,0).
+static std::pair<int,int> BayerROffset(const std::string& filter) {
+    if (filter == "BayerBG") return {1, 1};
+    if (filter == "BayerGR") return {1, 0};
+    if (filter == "BayerGB") return {0, 1};
+    return {0, 0};
+}
+
 static constexpr const char* kAutoModes[]   = { "Off", "Once", "Continuous" };
 static constexpr int         kAutoModeCount = 3;
 
@@ -61,6 +70,16 @@ void LiveViewApp::Disconnect() {
                 *tp = 0;
             }
         }
+        if (p.debayer_tex) {
+            GLuint t = static_cast<GLuint>(p.debayer_tex);
+            glDeleteTextures(1, &t);
+            p.debayer_tex = 0;
+        }
+        if (p.fbo) {
+            GLuint f = static_cast<GLuint>(p.fbo);
+            glDeleteFramebuffers(1, &f);
+            p.fbo = 0;
+        }
         for (int i = 0; i < 2; ++i) {
             if (p.pbo[i]) {
                 const GLuint pbo = static_cast<GLuint>(p.pbo[i]);
@@ -70,6 +89,13 @@ void LiveViewApp::Disconnect() {
         }
     }
     panels_.clear();
+
+    // Release debayer shader resources
+    if (debayer_prog_) { glDeleteProgram(static_cast<GLuint>(debayer_prog_)); debayer_prog_ = 0; }
+    if (quad_vao_)     { GLuint v = static_cast<GLuint>(quad_vao_); glDeleteVertexArrays(1, &v); quad_vao_ = 0; }
+    if (quad_vbo_)     { GLuint b = static_cast<GLuint>(quad_vbo_); glDeleteBuffers(1, &b);      quad_vbo_ = 0; }
+    u_bayer_loc_ = u_r_col_loc_ = u_r_row_loc_ = -1;
+
     cam_.reset();
     sys_state_          = {};
     connect_error_.clear();
@@ -93,6 +119,11 @@ void LiveViewApp::Connect(const std::string& addr) {
         cam_       = std::move(grpc_cam);
         sys_state_ = sys;
 
+        // Server always sends raw Bayer; LiveView handles debayer on GPU.
+        cam_->set_debayer_mode("Off", -1);
+
+        InitDebayerShader();
+
         for (int32_t i = 0; i < sys.connected_cameras; ++i) {
             CameraPanel panel;
             panel.camera_id = i;
@@ -110,9 +141,27 @@ void LiveViewApp::Connect(const std::string& addr) {
             panel.texture  = make_tex();
             panel.tex_back = make_tex();
 
+            // Debayer output texture (RGB8) + FBO — sized lazily in RunDebayerPass
+            {
+                GLuint t = 0; glGenTextures(1, &t);
+                glBindTexture(GL_TEXTURE_2D, t);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                panel.debayer_tex = static_cast<uint32_t>(t);
+            }
+            {
+                GLuint f = 0; glGenFramebuffers(1, &f);
+                panel.fbo = static_cast<uint32_t>(f);
+            }
+
             if (auto inf = panel.feed->QueryInfo()) {
                 panel.info = *inf;
                 LoadParamsFromInfo(panel);
+                auto [rc, rr] = BayerROffset(inf->pixel_color_filter);
+                panel.bayer_r_col = rc;
+                panel.bayer_r_row = rr;
             }
 
             panel.feed->Start();
@@ -220,6 +269,166 @@ void LiveViewApp::UploadTexture(CameraPanel& panel,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// GPU Bayer debayer — shader compile + per-frame render pass
+// ─────────────────────────────────────────────────────────────────────────────
+
+void LiveViewApp::InitDebayerShader() {
+    if (debayer_prog_) return;
+
+    static constexpr const char* kVert = R"GLSL(
+#version 330 core
+layout(location = 0) in vec2 a_pos;
+layout(location = 1) in vec2 a_uv;
+out vec2 v_uv;
+void main() { gl_Position = vec4(a_pos, 0.0, 1.0); v_uv = a_uv; }
+)GLSL";
+
+    // Bilinear Bayer reconstruction.
+    // u_r_col / u_r_row: column and row of the R pixel in the 2x2 Bayer cell.
+    //   BayerRG → (0,0)   BayerBG → (1,1)   BayerGR → (1,0)   BayerGB → (0,1)
+    static constexpr const char* kFrag = R"GLSL(
+#version 330 core
+in  vec2 v_uv;
+out vec4 frag_color;
+uniform sampler2D u_bayer;
+uniform int u_r_col;
+uniform int u_r_row;
+
+void main() {
+    ivec2 isz = textureSize(u_bayer, 0);
+    vec2  tx  = 1.0 / vec2(isz);
+    ivec2 px  = ivec2(v_uv * vec2(isz));
+
+    bool rc = ((px.x & 1) == u_r_col);   // true  → same col as R
+    bool rr = ((px.y & 1) == u_r_row);   // true  → same row as R
+
+    float c  = texture(u_bayer, v_uv).r;
+    float lf = texture(u_bayer, v_uv + vec2(-tx.x,  0.0)).r;
+    float rf = texture(u_bayer, v_uv + vec2( tx.x,  0.0)).r;
+    float uf = texture(u_bayer, v_uv + vec2( 0.0, -tx.y)).r;
+    float df = texture(u_bayer, v_uv + vec2( 0.0,  tx.y)).r;
+    float ul = texture(u_bayer, v_uv + vec2(-tx.x, -tx.y)).r;
+    float ur = texture(u_bayer, v_uv + vec2( tx.x, -tx.y)).r;
+    float dl = texture(u_bayer, v_uv + vec2(-tx.x,  tx.y)).r;
+    float dr = texture(u_bayer, v_uv + vec2( tx.x,  tx.y)).r;
+
+    float R, G, B;
+    if (rc && rr) {                          // R pixel
+        R = c;  G = (lf+rf+uf+df)*0.25;  B = (ul+ur+dl+dr)*0.25;
+    } else if (!rc && !rr) {                 // B pixel
+        B = c;  G = (lf+rf+uf+df)*0.25;  R = (ul+ur+dl+dr)*0.25;
+    } else if (rr) {                         // Green in R row: R←→, B↑↓
+        G = c;  R = (lf+rf)*0.5;          B = (uf+df)*0.5;
+    } else {                                 // Green in B row: B←→, R↑↓
+        G = c;  B = (lf+rf)*0.5;          R = (uf+df)*0.5;
+    }
+    frag_color = vec4(R, G, B, 1.0);
+}
+)GLSL";
+
+    auto compile = [](GLenum type, const char* src) -> GLuint {
+        GLuint s = glCreateShader(type);
+        glShaderSource(s, 1, &src, nullptr);
+        glCompileShader(s);
+        GLint ok = 0; glGetShaderiv(s, GL_COMPILE_STATUS, &ok);
+        if (!ok) {
+            char log[512]; glGetShaderInfoLog(s, sizeof(log), nullptr, log);
+            fprintf(stderr, "[Debayer] Compile error: %s\n", log);
+            glDeleteShader(s); return 0;
+        }
+        return s;
+    };
+
+    GLuint vs = compile(GL_VERTEX_SHADER,   kVert);
+    GLuint fs = compile(GL_FRAGMENT_SHADER, kFrag);
+    if (!vs || !fs) { glDeleteShader(vs); glDeleteShader(fs); return; }
+
+    GLuint prog = glCreateProgram();
+    glAttachShader(prog, vs); glAttachShader(prog, fs);
+    glLinkProgram(prog);
+    glDeleteShader(vs); glDeleteShader(fs);
+
+    GLint ok = 0; glGetProgramiv(prog, GL_LINK_STATUS, &ok);
+    if (!ok) {
+        char log[512]; glGetProgramInfoLog(prog, sizeof(log), nullptr, log);
+        fprintf(stderr, "[Debayer] Link error: %s\n", log);
+        glDeleteProgram(prog); return;
+    }
+    debayer_prog_ = static_cast<uint32_t>(prog);
+    u_bayer_loc_  = glGetUniformLocation(prog, "u_bayer");
+    u_r_col_loc_  = glGetUniformLocation(prog, "u_r_col");
+    u_r_row_loc_  = glGetUniformLocation(prog, "u_r_row");
+
+    // Fullscreen quad: NDC pos + UV, rendered as GL_TRIANGLE_STRIP
+    static constexpr float kQuad[] = {
+        -1.f,  1.f,   0.f, 1.f,   // top-left
+        -1.f, -1.f,   0.f, 0.f,   // bottom-left
+         1.f,  1.f,   1.f, 1.f,   // top-right
+         1.f, -1.f,   1.f, 0.f,   // bottom-right
+    };
+    GLuint vao = 0, vbo = 0;
+    glGenVertexArrays(1, &vao); glGenBuffers(1, &vbo);
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(kQuad), kQuad, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glBindVertexArray(0);
+    quad_vao_ = static_cast<uint32_t>(vao);
+    quad_vbo_ = static_cast<uint32_t>(vbo);
+}
+
+void LiveViewApp::RunDebayerPass(CameraPanel& panel) {
+    if (!debayer_prog_ || !panel.debayer_tex || !panel.fbo) return;
+    if (panel.tex_w <= 0 || panel.tex_h <= 0) return;
+
+    const GLuint prog = static_cast<GLuint>(debayer_prog_);
+    const GLuint vao  = static_cast<GLuint>(quad_vao_);
+    const GLuint fbo  = static_cast<GLuint>(panel.fbo);
+    const GLuint dt   = static_cast<GLuint>(panel.debayer_tex);
+    const GLuint bt   = static_cast<GLuint>(panel.texture);   // Bayer front buffer
+
+    // Reallocate debayer_tex when resolution changes.
+    if (panel.debayer_tex_w != panel.tex_w || panel.debayer_tex_h != panel.tex_h) {
+        glBindTexture(GL_TEXTURE_2D, dt);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8,
+                     panel.tex_w, panel.tex_h,
+                     0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+        panel.debayer_tex_w = panel.tex_w;
+        panel.debayer_tex_h = panel.tex_h;
+    }
+
+    // Save viewport; ImGui will restore its own state before rendering.
+    GLint vp[4]; glGetIntegerv(GL_VIEWPORT, vp);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, dt, 0);
+    glViewport(0, 0, panel.tex_w, panel.tex_h);
+    glDisable(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
+
+    glUseProgram(prog);
+    glUniform1i(u_bayer_loc_, 0);
+    glUniform1i(u_r_col_loc_, panel.bayer_r_col);
+    glUniform1i(u_r_row_loc_, panel.bayer_r_row);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, bt);
+
+    glBindVertexArray(vao);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+
+    // Restore minimal state; ImGui resets the rest before its own draw.
+    glUseProgram(0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(vp[0], vp[1], vp[2], vp[3]);
+    glEnable(GL_BLEND);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Top-level render dispatch
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -302,6 +511,14 @@ void LiveViewApp::RenderMainView(float delta_time_s) {
             std::swap(p.tex_ch,   p.tex_back_ch);
             p.tex_back_ready = false;
         }
+    }
+
+    // ── GPU debayer pass — runs on Bayer front textures after swap ───────────
+    // Reads panel.texture (raw Bayer, GL_RED), writes panel.debayer_tex (GL_RGB8).
+    // Only runs when debayer_enabled && data is 1-channel (raw Bayer from server).
+    for (auto& p : panels_) {
+        if (p.params.debayer_enabled && p.tex_ch == 1 && p.tex_w > 0)
+            RunDebayerPass(p);
     }
 
     // ── Drain new frames into GL textures (all cameras, not just selected) ────
@@ -464,7 +681,12 @@ void LiveViewApp::RenderImagePanel(CameraPanel& panel, float avail_w, float avai
 
         ImGui::SetCursorPos(ImVec2((avail_w - img_w) * 0.5f,
                                    (avail_h - img_h) * 0.5f));
-        ImGui::Image((ImTextureID)(uintptr_t)panel.texture, ImVec2(img_w, img_h));
+        // Use GPU-debayered texture when available; fall back to raw (grayscale).
+        const bool use_debayer = panel.params.debayer_enabled &&
+                                 panel.tex_ch == 1 &&
+                                 panel.debayer_tex_w > 0;
+        const uint32_t disp_tex = use_debayer ? panel.debayer_tex : panel.texture;
+        ImGui::Image((ImTextureID)(uintptr_t)disp_tex, ImVec2(img_w, img_h));
     } else {
         ImGui::Dummy(ImVec2(avail_w, avail_h));
         const ImVec2 p0 = ImGui::GetItemRectMin();
@@ -693,22 +915,21 @@ void LiveViewApp::RenderParamTab(CameraPanel& panel) {
     if (!ps.loaded)
         LoadParamsFromInfo(panel);
 
-    const float lbl_w = 110.f;   // label column width
+    const float lbl_w = 110.f;
 
     // ── Live parameters ───────────────────────────────────────────────────────
     ImGui::SeparatorText("Live Parameters");
-    ImGui::TextDisabled("Changes take effect immediately.");
+    ImGui::TextDisabled("Drag sliders to adjust. Ctrl+Click to type an exact value.");
     ImGui::Spacing();
 
-    // Exposure Auto — checkbox (Continuous) + Once button
+    // Auto Exposure — checkbox (Continuous) + Once button
     {
-        bool exp_auto = (ps.exposure_auto_idx == 2);  // 2=Continuous
+        bool exp_auto = (ps.exposure_auto_idx == 2);
         ImGui::Text("Auto Exp:");
         ImGui::SameLine(lbl_w);
         if (ImGui::Checkbox("##expauto", &exp_auto)) {
             ps.exposure_auto_idx = exp_auto ? 2 : 0;
-            const char* mode = exp_auto ? "Continuous" : "Off";
-            if (cam_) cam_->set_exposure_auto(mode, panel.camera_id);
+            if (cam_) cam_->set_exposure_auto(exp_auto ? "Continuous" : "Off", panel.camera_id);
             ps.apply_status = exp_auto ? "[OK] Auto exposure on." : "[OK] Auto exposure off.";
         }
         ImGui::SameLine();
@@ -721,17 +942,17 @@ void LiveViewApp::RenderParamTab(CameraPanel& panel) {
         }
     }
 
-    // Exposure value (greyed when auto is active; Set button applies immediately)
+    // Exposure — logarithmic slider (1 – 100 000 µs); applies immediately on release
     {
         const bool manual = (ps.exposure_auto_idx == 0);
         if (!manual) ImGui::BeginDisabled();
         ImGui::Text("Exposure:");
         ImGui::SameLine(lbl_w);
-        ImGui::SetNextItemWidth(-60.f);
-        ImGui::InputFloat("##exp", &ps.exposure_us, 100.f, 1000.f, "%.0f us");
+        ImGui::SetNextItemWidth(-1.f);
+        ImGui::SliderFloat("##exp", &ps.exposure_us, 1.f, 100000.f, "%.0f us",
+                           ImGuiSliderFlags_Logarithmic);
         ps.exposure_us = std::max(1.f, ps.exposure_us);
-        ImGui::SameLine();
-        if (ImGui::SmallButton("Set##expset")) {
+        if (manual && ImGui::IsItemDeactivatedAfterEdit()) {
             if (cam_) {
                 const bool ok = cam_->set_exposure(ps.exposure_us, panel.camera_id);
                 ps.apply_status = ok ? "[OK] Exposure set." : "[!] Failed: Exposure";
@@ -740,15 +961,14 @@ void LiveViewApp::RenderParamTab(CameraPanel& panel) {
         if (!manual) ImGui::EndDisabled();
     }
 
-    // Gain Auto — checkbox (Continuous) + Once button
+    // Auto Gain — checkbox (Continuous) + Once button
     {
         bool gain_auto = (ps.gain_auto_idx == 2);
         ImGui::Text("Auto Gain:");
         ImGui::SameLine(lbl_w);
         if (ImGui::Checkbox("##gainauto", &gain_auto)) {
             ps.gain_auto_idx = gain_auto ? 2 : 0;
-            const char* mode = gain_auto ? "Continuous" : "Off";
-            if (cam_) cam_->set_gain_auto(mode, panel.camera_id);
+            if (cam_) cam_->set_gain_auto(gain_auto ? "Continuous" : "Off", panel.camera_id);
             ps.apply_status = gain_auto ? "[OK] Auto gain on." : "[OK] Auto gain off.";
         }
         ImGui::SameLine();
@@ -761,15 +981,21 @@ void LiveViewApp::RenderParamTab(CameraPanel& panel) {
         }
     }
 
-    // Gain value (greyed when auto is active)
+    // Gain — slider (0 – 36 dB); applies immediately on release
     {
         const bool manual = (ps.gain_auto_idx == 0);
         if (!manual) ImGui::BeginDisabled();
         ImGui::Text("Gain:");
         ImGui::SameLine(lbl_w);
         ImGui::SetNextItemWidth(-1.f);
-        ImGui::InputFloat("##gain", &ps.gain_db, 0.5f, 5.f, "%.2f dB");
+        ImGui::SliderFloat("##gain", &ps.gain_db, 0.f, 36.f, "%.2f dB");
         ps.gain_db = std::max(0.f, ps.gain_db);
+        if (manual && ImGui::IsItemDeactivatedAfterEdit()) {
+            if (cam_) {
+                const bool ok = cam_->set_gain(ps.gain_db, panel.camera_id);
+                ps.apply_status = ok ? "[OK] Gain set." : "[!] Failed: Gain";
+            }
+        }
         if (!manual) ImGui::EndDisabled();
     }
 
@@ -779,20 +1005,22 @@ void LiveViewApp::RenderParamTab(CameraPanel& panel) {
     ImGui::SetNextItemWidth(-1.f);
     ImGui::SliderFloat("##gamma", &ps.gamma, 0.5f, 4.0f, "%.3f");
 
-    // Frame Rate
-    ImGui::Text("FPS Limit:");
-    ImGui::SameLine(lbl_w);
-    ImGui::Checkbox("##fpsenable", &ps.frame_rate_limit_enabled);
-    ImGui::SameLine();
-    ImGui::TextDisabled(ps.frame_rate_limit_enabled ? "Enabled" : "Disabled");
+    // FPS Limit — toggle + slider
+    {
+        ImGui::Text("FPS Limit:");
+        ImGui::SameLine(lbl_w);
+        ImGui::Checkbox("##fpsenable", &ps.frame_rate_limit_enabled);
+        ImGui::SameLine();
+        ImGui::TextDisabled(ps.frame_rate_limit_enabled ? "Enabled" : "Disabled");
 
-    if (!ps.frame_rate_limit_enabled) ImGui::BeginDisabled();
-    ImGui::Text("Frame Rate:");
-    ImGui::SameLine(lbl_w);
-    ImGui::SetNextItemWidth(-1.f);
-    ImGui::InputFloat("##fps", &ps.frame_rate, 1.f, 5.f, "%.1f fps");
-    ps.frame_rate = std::max(1.f, ps.frame_rate);
-    if (!ps.frame_rate_limit_enabled) ImGui::EndDisabled();
+        if (!ps.frame_rate_limit_enabled) ImGui::BeginDisabled();
+        ImGui::Text("Frame Rate:");
+        ImGui::SameLine(lbl_w);
+        ImGui::SetNextItemWidth(-1.f);
+        ImGui::SliderFloat("##fps", &ps.frame_rate, 1.f, 120.f, "%.1f fps");
+        ps.frame_rate = std::clamp(ps.frame_rate, 1.f, 120.f);
+        if (!ps.frame_rate_limit_enabled) ImGui::EndDisabled();
+    }
 
     // EV Compensation — greyed when ExposureAuto is Off
     {
@@ -809,22 +1037,17 @@ void LiveViewApp::RenderParamTab(CameraPanel& panel) {
         }
     }
 
-    // Debayer toggle — immediate apply; switches SHM between BGR8 (3ch) and raw Bayer (1ch)
+    // GPU Debayer — LiveView shader only; server always streams raw Bayer
     {
-        ImGui::Text("Debayer:");
+        ImGui::Text("GPU Debayer:");
         ImGui::SameLine(lbl_w);
         bool deb = ps.debayer_enabled;
         if (ImGui::Checkbox("##debayer", &deb)) {
             ps.debayer_enabled = deb;
-            if (cam_) {
-                const bool ok = cam_->set_debayer_mode(deb ? "On" : "Off", panel.camera_id);
-                ps.apply_status = ok
-                    ? (deb ? "[OK] Debayer on (BGR8)." : "[OK] Debayer off (raw Bayer).")
-                    : "[!] Failed: DebayerMode";
-            }
+            ps.apply_status = deb ? "[OK] GPU debayer on." : "[OK] GPU debayer off (grayscale).";
         }
         ImGui::SameLine();
-        ImGui::TextDisabled(deb ? "On (BGR8)" : "Off (raw Bayer, 1ch)");
+        ImGui::TextDisabled(deb ? "On (GPU)" : "Off (grayscale)");
     }
 
     ImGui::Spacing();
@@ -840,7 +1063,7 @@ void LiveViewApp::RenderParamTab(CameraPanel& panel) {
     ImGui::PopStyleColor();
     ImGui::Spacing();
 
-    // ROI
+    // ROI — InputInt for precise pixel values
     ImGui::Text("ROI Width:");
     ImGui::SameLine(lbl_w);
     ImGui::SetNextItemWidth(-1.f);
@@ -865,26 +1088,33 @@ void LiveViewApp::RenderParamTab(CameraPanel& panel) {
     ImGui::InputInt("##offy", &ps.roi_offset_y, 4, 32);
     ps.roi_offset_y = std::max(0, ps.roi_offset_y);
 
-    // Binning
-    ImGui::Text("Binning H:");
-    ImGui::SameLine(lbl_w);
-    ImGui::SetNextItemWidth(-1.f);
-    ImGui::InputInt("##binh", &ps.binning_h, 1, 1);
-    ps.binning_h = std::max(1, ps.binning_h);
+    // Binning — combo (1x / 2x / 4x)
+    {
+        static constexpr const char* kBinOpts[] = { "1x", "2x", "4x" };
+        auto bin_to_idx = [](int v) -> int { return v >= 4 ? 2 : v >= 2 ? 1 : 0; };
+        auto idx_to_bin = [](int i) -> int { return i == 2 ? 4 : i == 1 ? 2 : 1; };
 
-    ImGui::Text("Binning V:");
-    ImGui::SameLine(lbl_w);
-    ImGui::SetNextItemWidth(-1.f);
-    ImGui::InputInt("##binv", &ps.binning_v, 1, 1);
-    ps.binning_v = std::max(1, ps.binning_v);
+        ImGui::Text("Binning H:");
+        ImGui::SameLine(lbl_w);
+        ImGui::SetNextItemWidth(-1.f);
+        int bhi = bin_to_idx(ps.binning_h);
+        if (ImGui::Combo("##binh", &bhi, kBinOpts, 3))
+            ps.binning_h = idx_to_bin(bhi);
 
-    // Link Speed
+        ImGui::Text("Binning V:");
+        ImGui::SameLine(lbl_w);
+        ImGui::SetNextItemWidth(-1.f);
+        int bvi = bin_to_idx(ps.binning_v);
+        if (ImGui::Combo("##binv", &bvi, kBinOpts, 3))
+            ps.binning_v = idx_to_bin(bvi);
+    }
+
+    // Link Speed — slider (50 – 1200 MB/s)
     ImGui::Text("Link Speed:");
     ImGui::SameLine(lbl_w);
     ImGui::SetNextItemWidth(-1.f);
-    ImGui::InputInt("##link", &ps.link_speed_mbps, 10, 100);
-    ps.link_speed_mbps = std::clamp(ps.link_speed_mbps, 1, 1200);
-    ImGui::TextDisabled("  MB/s  (×1 000 000 = bytes/s)");
+    ImGui::SliderInt("##link", &ps.link_speed_mbps, 50, 1200, "%d MB/s");
+    ps.link_speed_mbps = std::clamp(ps.link_speed_mbps, 50, 1200);
 
     ImGui::Spacing();
     ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.60f, 0.22f, 0.04f, 1.f));
@@ -896,7 +1126,7 @@ void LiveViewApp::RenderParamTab(CameraPanel& panel) {
     if (do_stop)
         ApplyStopRequiredParams(panel);
 
-    // Apply status feedback
+    // Status feedback
     if (!ps.apply_status.empty()) {
         ImGui::Spacing();
         const bool is_ok = (ps.apply_status.rfind("[OK]", 0) == 0);
@@ -908,7 +1138,6 @@ void LiveViewApp::RenderParamTab(CameraPanel& panel) {
 
     ImGui::Spacing();
 
-    // Reload params from server
     if (ImGui::Button("Reload from Camera", ImVec2(-1.f, 0.f))) {
         if (auto inf = panel.feed->QueryInfo()) {
             panel.info  = *inf;
